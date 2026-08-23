@@ -150,6 +150,42 @@
   NA_integer_
 }
 
+#' Resolve the effective rxode2 threads-per-worker for an rxThreads=
+#' specification
+#'
+#' Validates \strong{both} arguments -- \code{workers} first, then
+#' \code{rxThreads} -- so an invalid \code{workers} value is rejected
+#' cleanly here rather than reaching \code{.resolveEffectiveWorkers()}'s
+#' \code{as.integer()} coercion with garbage input.
+#'
+#' @param workers the same \code{workers} value passed to the caller's own
+#'   \code{workers=} argument -- used only to compute \code{rxThreads =
+#'   "auto"}.
+#' @param rxThreads \code{NULL} (use the current \code{rxode2::getRxThreads()}
+#'   value), \code{"auto"} (divide the total core count evenly across
+#'   \code{workers}, minimum \code{1}), or a positive integer.
+#' @return integer; the rxode2 thread count that would actually be used.
+#' @examples
+#' resolveRxThreads(NULL, NULL)
+#' resolveRxThreads(4L, "auto")
+#' @export
+resolveRxThreads <- function(workers, rxThreads = NULL) {
+  .validateWorkers(workers)
+  .validateRxThreads(rxThreads)
+  if (is.null(rxThreads)) {
+    return(as.integer(rxode2::getRxThreads()))
+  }
+  if (identical(rxThreads, "auto")) {
+    effectiveWorkers <- .resolveEffectiveWorkers(workers)
+    totalCores <- .resolveTotalCores()
+    if (is.na(totalCores)) {
+      return(as.integer(rxode2::getRxThreads()))
+    }
+    return(max(1L, as.integer(floor(totalCores / effectiveWorkers))))
+  }
+  as.integer(rxThreads)
+}
+
 #' Temporarily set a future parallel plan for the duration of an expression
 #'
 #' @param workers \code{NULL} (leave the current plan unchanged),

@@ -279,3 +279,59 @@ test_that(".withWorkerPlan: workers=2 restores original plan", {
 
   expect_equal(class(future::plan()), plan_before)
 })
+
+# =============================================================================
+# resolveRxThreads
+# =============================================================================
+
+test_that("resolveRxThreads: NULL returns the current rxode2 thread count", {
+  skip_if_not_installed("rxode2")
+  expect_equal(
+    .cur$resolveRxThreads(workers = NULL, rxThreads = NULL),
+    as.integer(rxode2::getRxThreads())
+  )
+})
+
+test_that("resolveRxThreads: explicit integer passes through", {
+  expect_equal(.cur$resolveRxThreads(workers = 4L, rxThreads = 2L), 2L)
+})
+
+test_that("resolveRxThreads: 'auto' divides total cores by effective workers", {
+  skip_if_not_installed("future")
+  totalCores <- .cur$.resolveTotalCores()
+  skip_if(is.na(totalCores), "total core count could not be determined")
+
+  result <- .cur$resolveRxThreads(workers = 2L, rxThreads = "auto")
+  expect_equal(result, max(1L, as.integer(floor(totalCores / 2L))))
+})
+
+test_that("resolveRxThreads: 'auto' never returns less than 1", {
+  skip_if_not_installed("future")
+  totalCores <- .cur$.resolveTotalCores()
+  skip_if(is.na(totalCores), "total core count could not be determined")
+
+  # deliberately request far more workers than cores, to force the floor
+  result <- .cur$resolveRxThreads(
+    workers = totalCores * 100L,
+    rxThreads = "auto"
+  )
+  expect_equal(result, 1L)
+})
+
+test_that("resolveRxThreads: rejects invalid rxThreads", {
+  expect_error(
+    .cur$resolveRxThreads(workers = NULL, rxThreads = -1),
+    "rxThreads"
+  )
+})
+
+test_that("resolveRxThreads: rejects invalid workers before touching rxThreads", {
+  expect_error(
+    .cur$resolveRxThreads(workers = -1, rxThreads = NULL),
+    "workers"
+  )
+  expect_error(
+    .cur$resolveRxThreads(workers = "bad", rxThreads = 1L),
+    "workers"
+  )
+})
