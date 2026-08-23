@@ -1,3 +1,7 @@
+#' @importFrom knitr knit_print
+#' @export
+knitr::knit_print
+
 #' @importFrom rxode2 ini
 #' @export
 rxode2::ini

@@ -1,13 +1,29 @@
-#' @importFrom knitr knit_print
-#' @export
-knitr::knit_print
-
 #' Extract the equations from an nlmixr2/rxode2 model to produce a 'LaTeX'
 #' equation.
 #'
 #' @param x The model to extract equations from
 #' @param ... Ignored
 #' @param output The type of output to request (currently, just "equations")
+#' @return A [knitr::asis_output()] object containing the 'LaTeX' equation
+#'   block, ready to be printed as-is inside a 'knitr'/'rmarkdown' document.
+#' @examples
+#' mod <- function() {
+#'   ini({
+#'     lka <- 0.45
+#'     lcl <- 1
+#'     lvc <- 3.45
+#'     propSd <- 0.5
+#'   })
+#'   model({
+#'     ka <- exp(lka)
+#'     cl <- exp(lcl)
+#'     vc <- exp(lvc)
+#'     cp <- linCmt()
+#'     cp ~ prop(propSd)
+#'   })
+#' }
+#' ui <- rxode2::rxode(mod)
+#' knit_print(ui)
 #' @export
 knit_print.nlmixr2FitCore <- function(x, ..., output = "equations") {
   output <- match.arg(output)
@@ -65,7 +81,6 @@ extractEqHelperLhsRhs <- function(
   if (length(x) != 3) {
     stop("extractEqHelperLhsRhs requires length of 3, please report a bug") # nocov
   }
-  stopifnot(length(x) == 3)
   if (!is.null(lhsForce)) {
     lhs <- lhsForce
   } else {
@@ -443,6 +458,7 @@ braceWrap <- function(x, ..., inModel, indent) {
 #' @param firstIf tracks if this is the first if at the current indent level
 #' @param indent tracks the current indention level
 #' @noRd
+#' @export
 extractEqHelper.if <- function(
   x,
   ...,

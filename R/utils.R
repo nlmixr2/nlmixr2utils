@@ -10,8 +10,9 @@
 #' @param .label  optional \code{function(x) -> character} producing a per-item
 #'   progress label; \code{x} is each element of \code{X}
 #' @return list of results in the same order as \code{X}
+#' @examples
+#' .plap(1:3, function(x) x * 2)
 #' @export
-#' @noRd
 .plap <- function(X, FUN, ..., .label = NULL) {
   if (!requireNamespace("future.apply", quietly = TRUE)) {
     return(lapply(X, FUN, ...))
@@ -46,8 +47,10 @@
 #'
 #' @param workers \code{NULL}, \code{"auto"}, \code{1}, or a positive integer.
 #' @return Invisibly returns \code{NULL} when \code{workers} is valid.
+#' @examples
+#' .validateWorkers(1L)
+#' .validateWorkers("auto")
 #' @export
-#' @noRd
 .validateWorkers <- function(workers) {
   if (is.null(workers) || identical(workers, "auto")) {
     return(invisible(NULL))
@@ -76,8 +79,9 @@
 #' @param expr expression to evaluate; the prior plan is always restored on
 #'   exit, even if \code{expr} throws an error.
 #' @return value of \code{expr}
+#' @examples
+#' .withWorkerPlan(NULL, 1 + 1)
 #' @export
-#' @noRd
 .withWorkerPlan <- function(workers, expr) {
   .validateWorkers(workers)
   if (is.null(workers)) {

@@ -20,7 +20,8 @@ A (modified) data frame with  132 rows and 22 columns.
 \item{CRES}{Conditional Residuals under the FOCE assumption}
 \item{CWRES}{Conditional Weighted Residuals under the FOCE assumption}
 \item{eta.ka}{Between subject changes for ka}
-\item{eta.cl}{Between subject changes for v}
+\item{eta.cl}{Between subject changes for cl}
+\item{eta.v}{Between subject changes for v}
 \item{depot}{amount in the depot compartment}
 \item{center}{amount in the central compartment}
 \item{ka}{Individual ka values}
@@ -32,8 +33,8 @@ A (modified) data frame with  132 rows and 22 columns.
 }
 \description{
 This is a nlmixr2 model that is pre-run so that it can be used in
-package testing and development.  It is regenerated whenever
-binaries of \code{nlmixr2utils} are created.  If there is a binary
-incompatability between the fit objects, a simple rerun of the
-installation will fix this nlmixr2 fit object.
+package testing and development.  It is regenerated when
+\code{devtools::document()} is run on a source checkout.  If there is a
+binary incompatability between the fit objects, re-documenting (or
+running \code{build/build.R}) will fix this nlmixr2 fit object.
 }

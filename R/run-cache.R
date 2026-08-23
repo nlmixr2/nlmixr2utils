@@ -76,6 +76,11 @@
   invisible(path)
 }
 
+# Hand-rolled rather than pulled from a hashing package (e.g. digest) to avoid
+# a new hard dependency for what only needs to be a stable, reproducible
+# integer, not a cryptographic hash. `version = 2` pins the serialization
+# format (stable since R 3.5) so the same `x` hashes to the same seed across
+# R versions and platforms.
 .hashSeed <- function(x) {
   bytes <- as.integer(serialize(x, NULL, version = 2))
   idx <- seq_along(bytes)

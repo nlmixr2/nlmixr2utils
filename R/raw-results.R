@@ -52,71 +52,71 @@
     return(names(theta))
   }
 
-  ini_df <- fit$iniDf
-  if (is.data.frame(ini_df) && "ntheta" %in% names(ini_df)) {
-    theta_rows <- !is.na(ini_df$ntheta)
-    if ("fix" %in% names(ini_df)) {
-      theta_fixed <- !is.na(ini_df$fix) & ini_df$fix
-      theta_rows <- theta_rows & !theta_fixed
+  iniDf <- fit$iniDf
+  if (is.data.frame(iniDf) && "ntheta" %in% names(iniDf)) {
+    thetaRows <- !is.na(iniDf$ntheta)
+    if ("fix" %in% names(iniDf)) {
+      thetaFixed <- !is.na(iniDf$fix) & iniDf$fix
+      thetaRows <- thetaRows & !thetaFixed
     }
-    theta_names <- ini_df$name[theta_rows]
-    theta_names <- theta_names[!is.na(theta_names) & nzchar(theta_names)]
-    if (length(theta_names) > 0L) {
-      return(theta_names)
+    thetaNames <- iniDf$name[thetaRows]
+    thetaNames <- thetaNames[!is.na(thetaNames) & nzchar(thetaNames)]
+    if (length(thetaNames) > 0L) {
+      return(thetaNames)
     }
   }
 
-  par_df <- fit$parFixedDf
+  parDf <- fit$parFixedDf
   if (
-    is.data.frame(par_df) && nrow(par_df) > 0L && !is.null(rownames(par_df))
+    is.data.frame(parDf) && nrow(parDf) > 0L && !is.null(rownames(parDf))
   ) {
-    theta_names <- rownames(par_df)
-    theta_names <- theta_names[!is.na(theta_names) & nzchar(theta_names)]
-    if (length(theta_names) > 0L) {
-      return(theta_names)
+    thetaNames <- rownames(parDf)
+    thetaNames <- thetaNames[!is.na(thetaNames) & nzchar(thetaNames)]
+    if (length(thetaNames) > 0L) {
+      return(thetaNames)
     }
   }
 
   character(0)
 }
 
-.thetaValuesFromFit <- function(fit, theta_names = .thetaNamesFromFit(fit)) {
-  vals <- rep(NA_real_, length(theta_names))
-  names(vals) <- theta_names
+.thetaValuesFromFit <- function(fit, thetaNames = .thetaNamesFromFit(fit)) {
+  vals <- rep(NA_real_, length(thetaNames))
+  names(vals) <- thetaNames
 
   theta <- fit$theta
   if (!is.null(theta) && length(theta) > 0L) {
     theta <- as.numeric(theta)
     names(theta) <- names(fit$theta)
-    common <- intersect(theta_names, names(theta))
+    common <- intersect(thetaNames, names(theta))
     vals[common] <- unname(theta[common])
   }
 
   vals
 }
 
-.thetaSeFromFit <- function(fit, theta_names = .thetaNamesFromFit(fit)) {
-  vals <- rep(NA_real_, length(theta_names))
-  names(vals) <- theta_names
+.thetaSeFromFit <- function(fit, thetaNames = .thetaNamesFromFit(fit)) {
+  vals <- rep(NA_real_, length(thetaNames))
+  names(vals) <- thetaNames
 
-  par_df <- fit$parFixedDf
+  parDf <- fit$parFixedDf
   if (
-    is.data.frame(par_df) &&
-      nrow(par_df) > 0L &&
-      "SE" %in% names(par_df) &&
-      !is.null(rownames(par_df))
+    is.data.frame(parDf) &&
+      nrow(parDf) > 0L &&
+      "SE" %in% names(parDf) &&
+      !is.null(rownames(parDf))
   ) {
-    common <- intersect(theta_names, rownames(par_df))
-    vals[common] <- as.numeric(par_df[common, "SE", drop = TRUE])
+    common <- intersect(thetaNames, rownames(parDf))
+    vals[common] <- as.numeric(parDf[common, "SE", drop = TRUE])
     return(vals)
   }
 
-  cov_mat <- fit$cov
+  covMat <- fit$cov
   if (
-    is.matrix(cov_mat) && nrow(cov_mat) > 0L && nrow(cov_mat) == ncol(cov_mat)
+    is.matrix(covMat) && nrow(covMat) > 0L && nrow(covMat) == ncol(covMat)
   ) {
-    se <- sqrt(diag(cov_mat))
-    common <- intersect(theta_names, names(se))
+    se <- sqrt(diag(covMat))
+    common <- intersect(thetaNames, names(se))
     vals[common] <- unname(se[common])
   }
 
@@ -127,20 +127,20 @@
   prefix,
   row,
   col,
-  row_name = NULL,
-  col_name = NULL
+  rowName = NULL,
+  colName = NULL
 ) {
-  row_lab <- if (!is.null(row_name) && !is.na(row_name) && nzchar(row_name)) {
-    row_name
+  rowLab <- if (!is.null(rowName) && !is.na(rowName) && nzchar(rowName)) {
+    rowName
   } else {
     as.character(row)
   }
-  col_lab <- if (!is.null(col_name) && !is.na(col_name) && nzchar(col_name)) {
-    col_name
+  colLab <- if (!is.null(colName) && !is.na(colName) && nzchar(colName)) {
+    colName
   } else {
     as.character(col)
   }
-  paste0(prefix, "(", row_lab, ",", col_lab, ")")
+  paste0(prefix, "(", rowLab, ",", colLab, ")")
 }
 
 .matrixInfo <- function(mat, prefix) {
@@ -156,8 +156,8 @@
     ))
   }
 
-  row_names <- rownames(mat)
-  col_names <- colnames(mat)
+  rowNames <- rownames(mat)
+  colNames <- colnames(mat)
   idx <- which(lower.tri(mat, diag = TRUE), arr.ind = TRUE)
   idx <- idx[order(idx[, "col"], idx[, "row"]), , drop = FALSE]
 
@@ -169,13 +169,13 @@
           prefix = prefix,
           row = idx[i, "row"],
           col = idx[i, "col"],
-          row_name = if (!is.null(row_names)) {
-            row_names[[idx[i, "row"]]]
+          rowName = if (!is.null(rowNames)) {
+            rowNames[[idx[i, "row"]]]
           } else {
             NULL
           },
-          col_name = if (!is.null(col_names)) {
-            col_names[[idx[i, "col"]]]
+          colName = if (!is.null(colNames)) {
+            colNames[[idx[i, "col"]]]
           } else {
             NULL
           }
@@ -191,72 +191,72 @@
 }
 
 .omegaInfoFromFit <- function(fit) {
-  omega_mat <- fit$omega
-  if (!is.matrix(omega_mat) || nrow(omega_mat) == 0L || ncol(omega_mat) == 0L) {
+  omegaMat <- fit$omega
+  if (!is.matrix(omegaMat) || nrow(omegaMat) == 0L || ncol(omegaMat) == 0L) {
     return(.matrixInfo(matrix(numeric(0), 0, 0), "omega"))
   }
 
-  ini_df <- fit$iniDf
+  iniDf <- fit$iniDf
   if (
-    !is.data.frame(ini_df) ||
-      !all(c("neta1", "neta2", "name") %in% names(ini_df))
+    !is.data.frame(iniDf) ||
+      !all(c("neta1", "neta2", "name") %in% names(iniDf))
   ) {
-    return(.matrixInfo(omega_mat, "omega"))
+    return(.matrixInfo(omegaMat, "omega"))
   }
 
-  omega_rows <- ini_df[!is.na(ini_df$neta1), , drop = FALSE]
-  if (nrow(omega_rows) == 0L) {
+  omegaRows <- iniDf[!is.na(iniDf$neta1), , drop = FALSE]
+  if (nrow(omegaRows) == 0L) {
     return(.matrixInfo(matrix(numeric(0), 0, 0), "omega"))
   }
 
-  omega_fixed <- if ("fix" %in% names(omega_rows)) {
-    !is.na(omega_rows$fix) & omega_rows$fix
+  omegaFixed <- if ("fix" %in% names(omegaRows)) {
+    !is.na(omegaRows$fix) & omegaRows$fix
   } else {
-    rep(FALSE, nrow(omega_rows))
+    rep(FALSE, nrow(omegaRows))
   }
-  lower_rows <- omega_rows[
-    !omega_fixed & omega_rows$neta1 >= omega_rows$neta2,
+  lowerRows <- omegaRows[
+    !omegaFixed & omegaRows$neta1 >= omegaRows$neta2,
     ,
     drop = FALSE
   ]
-  if (nrow(lower_rows) == 0L) {
+  if (nrow(lowerRows) == 0L) {
     return(.matrixInfo(matrix(numeric(0), 0, 0), "omega"))
   }
-  lower_rows <- lower_rows[
-    order(lower_rows$neta2, lower_rows$neta1),
+  lowerRows <- lowerRows[
+    order(lowerRows$neta2, lowerRows$neta1),
     ,
     drop = FALSE
   ]
 
-  diag_rows <- omega_rows[omega_rows$neta1 == omega_rows$neta2, , drop = FALSE]
-  idx_to_name <- stats::setNames(
-    diag_rows$name,
-    as.character(diag_rows$neta1)
+  diagRows <- omegaRows[omegaRows$neta1 == omegaRows$neta2, , drop = FALSE]
+  idxToName <- stats::setNames(
+    diagRows$name,
+    as.character(diagRows$neta1)
   )
-  row_names <- rownames(omega_mat)
-  col_names <- colnames(omega_mat)
+  rowNames <- rownames(omegaMat)
+  colNames <- colnames(omegaMat)
 
   data.frame(
     colName = vapply(
-      seq_len(nrow(lower_rows)),
+      seq_len(nrow(lowerRows)),
       function(i) {
-        r <- lower_rows$neta1[[i]]
-        c_idx <- lower_rows$neta2[[i]]
+        r <- lowerRows$neta1[[i]]
+        cIdx <- lowerRows$neta2[[i]]
         .matrixCoordLabel(
           prefix = "omega",
           row = r,
-          col = c_idx,
-          row_name = if (!is.null(idx_to_name[[as.character(r)]])) {
-            idx_to_name[[as.character(r)]]
-          } else if (!is.null(row_names) && length(row_names) >= r) {
-            row_names[[r]]
+          col = cIdx,
+          rowName = if (!is.null(idxToName[[as.character(r)]])) {
+            idxToName[[as.character(r)]]
+          } else if (!is.null(rowNames) && length(rowNames) >= r) {
+            rowNames[[r]]
           } else {
             NULL
           },
-          col_name = if (!is.null(idx_to_name[[as.character(c_idx)]])) {
-            idx_to_name[[as.character(c_idx)]]
-          } else if (!is.null(col_names) && length(col_names) >= c_idx) {
-            col_names[[c_idx]]
+          colName = if (!is.null(idxToName[[as.character(cIdx)]])) {
+            idxToName[[as.character(cIdx)]]
+          } else if (!is.null(colNames) && length(colNames) >= cIdx) {
+            colNames[[cIdx]]
           } else {
             NULL
           }
@@ -264,12 +264,12 @@
       },
       character(1)
     ),
-    row = as.integer(lower_rows$neta1),
-    col = as.integer(lower_rows$neta2),
+    row = as.integer(lowerRows$neta1),
+    col = as.integer(lowerRows$neta2),
     value = vapply(
-      seq_len(nrow(lower_rows)),
+      seq_len(nrow(lowerRows)),
       function(i) {
-        omega_mat[lower_rows$neta1[[i]], lower_rows$neta2[[i]]]
+        omegaMat[lowerRows$neta1[[i]], lowerRows$neta2[[i]]]
       },
       numeric(1)
     ),
@@ -282,18 +282,18 @@
 }
 
 .schemaHeader <- function(schema) {
-  total_param <- c(schema$thetaCols, schema$omegaCols, schema$sigmaCols)
-  block_range <- function(cols, start_index) {
+  totalParam <- c(schema$thetaCols, schema$omegaCols, schema$sigmaCols)
+  blockRange <- function(cols, startIndex) {
     if (length(cols) == 0L) {
       return(NULL)
     }
-    c(as.integer(start_index), as.integer(start_index + length(cols) - 1L))
+    c(as.integer(startIndex), as.integer(startIndex + length(cols) - 1L))
   }
 
-  theta_start <- length(schema$baseCols) + 1L
-  omega_start <- theta_start + length(schema$thetaCols)
-  sigma_start <- omega_start + length(schema$omegaCols)
-  se_start <- sigma_start + length(schema$sigmaCols)
+  thetaStart <- length(schema$baseCols) + 1L
+  omegaStart <- thetaStart + length(schema$thetaCols)
+  sigmaStart <- omegaStart + length(schema$omegaCols)
+  seStart <- sigmaStart + length(schema$sigmaCols)
 
   list(
     schema_version = as.integer(schema$schemaVersion),
@@ -304,13 +304,13 @@
     sigma_cols = unname(schema$sigmaCols),
     se_cols = unname(schema$seCols),
     block_ranges = list(
-      base = block_range(schema$baseCols, 1L),
-      theta = block_range(schema$thetaCols, theta_start),
-      omega = block_range(schema$omegaCols, omega_start),
-      sigma = block_range(schema$sigmaCols, sigma_start),
-      se = block_range(schema$seCols, se_start)
+      base = blockRange(schema$baseCols, 1L),
+      theta = blockRange(schema$thetaCols, thetaStart),
+      omega = blockRange(schema$omegaCols, omegaStart),
+      sigma = blockRange(schema$sigmaCols, sigmaStart),
+      se = blockRange(schema$seCols, seStart)
     ),
-    parameter_cols = unname(total_param)
+    parameter_cols = unname(totalParam)
   )
 }
 
@@ -352,33 +352,33 @@
   }
 
   cols <- names(rows)
-  missing_base <- setdiff(.rawResultsBaseCols, cols)
-  if (length(missing_base) > 0L) {
+  missingBase <- setdiff(.rawResultsBaseCols, cols)
+  if (length(missingBase) > 0L) {
     .abortRawResults(
-      "Raw-results rows are missing required base column{?s} {.val {missing_base}}."
+      "Raw-results rows are missing required base column{?s} {.val {missingBase}}."
     )
   }
 
-  non_base <- setdiff(cols, .rawResultsBaseCols)
-  se_cols <- non_base[grepl("\\.se$", non_base)]
-  param_cols <- setdiff(non_base, se_cols)
-  theta_cols <- param_cols[
-    !grepl("^omega\\(", param_cols) &
-      !grepl("^sigma\\(", param_cols)
+  nonBase <- setdiff(cols, .rawResultsBaseCols)
+  seCols <- nonBase[grepl("\\.se$", nonBase)]
+  paramCols <- setdiff(nonBase, seCols)
+  thetaCols <- paramCols[
+    !grepl("^omega\\(", paramCols) &
+      !grepl("^sigma\\(", paramCols)
   ]
-  omega_cols <- param_cols[grepl("^omega\\(", param_cols)]
-  sigma_cols <- param_cols[grepl("^sigma\\(", param_cols)]
+  omegaCols <- paramCols[grepl("^omega\\(", paramCols)]
+  sigmaCols <- paramCols[grepl("^sigma\\(", paramCols)]
 
-  ordered_param <- c(theta_cols, omega_cols, sigma_cols)
-  ordered_se <- paste0(ordered_param, ".se")
-  ordered_cols <- c(.rawResultsBaseCols, ordered_param, ordered_se)
+  orderedParam <- c(thetaCols, omegaCols, sigmaCols)
+  orderedSe <- paste0(orderedParam, ".se")
+  orderedCols <- c(.rawResultsBaseCols, orderedParam, orderedSe)
 
   .schemaHeader(.normalizeSchemaList(list(
-    columns = ordered_cols,
-    thetaCols = theta_cols,
-    omegaCols = omega_cols,
-    sigmaCols = sigma_cols,
-    seCols = ordered_se
+    columns = orderedCols,
+    thetaCols = thetaCols,
+    omegaCols = omegaCols,
+    sigmaCols = sigmaCols,
+    seCols = orderedSe
   )))
 }
 
@@ -393,9 +393,9 @@
     header
   }
   schema <- .schemaFromHeader(header)
-  missing_cols <- setdiff(schema$columns, names(rows))
-  if (length(missing_cols) > 0L) {
-    for (col in missing_cols) {
+  missingCols <- setdiff(schema$columns, names(rows))
+  if (length(missingCols) > 0L) {
+    for (col in missingCols) {
       rows[[col]] <- NA
     }
   }
@@ -413,18 +413,18 @@
 }
 
 .rawResultsFilterColumns <- function(cols, available) {
-  missing_cols <- setdiff(unique(cols), available)
-  if (length(missing_cols) > 0L) {
+  missingCols <- setdiff(unique(cols), available)
+  if (length(missingCols) > 0L) {
     .abortRawResults(
-      "Filter references unknown raw-results column{?s} {.val {missing_cols}}."
+      "Filter references unknown raw-results column{?s} {.val {missingCols}}."
     )
   }
 }
 
-.coerceFilterResult <- function(x, n_expected) {
-  if (!is.logical(x) || length(x) != n_expected) {
+.coerceFilterResult <- function(x, nExpected) {
+  if (!is.logical(x) || length(x) != nExpected) {
     .abortRawResults(
-      "Raw-results filter must return a logical vector of length {n_expected}."
+      "Raw-results filter must return a logical vector of length {nExpected}."
     )
   }
   x[is.na(x)] <- FALSE
@@ -438,7 +438,7 @@
   utils::type.convert(x, as.is = TRUE)
 }
 
-.vectorWithNames <- function(x, target_names, arg) {
+.vectorWithNames <- function(x, targetNames, arg) {
   if (is.null(x)) {
     return(stats::setNames(numeric(0), character(0)))
   }
@@ -448,12 +448,12 @@
   if (!is.null(names(x))) {
     return(x)
   }
-  if (length(x) != length(target_names)) {
+  if (length(x) != length(targetNames)) {
     .abortRawResults(
-      "{.arg {arg}} must be named or have length {length(target_names)}."
+      "{.arg {arg}} must be named or have length {length(targetNames)}."
     )
   }
-  stats::setNames(x, target_names)
+  stats::setNames(x, targetNames)
 }
 
 .extractConditionNumber <- function(fit) {
@@ -498,13 +498,13 @@
   if (length(flag) == 1L && !is.na(flag)) {
     return(as.integer(flag))
   }
-  cov_mat <- fit$cov
+  covMat <- fit$cov
   if (
-    is.matrix(cov_mat) && nrow(cov_mat) > 0L && nrow(cov_mat) == ncol(cov_mat)
+    is.matrix(covMat) && nrow(covMat) > 0L && nrow(covMat) == ncol(covMat)
   ) {
     return(1L)
   }
-  if (is.null(cov_mat) || length(cov_mat) == 0L) {
+  if (is.null(covMat) || length(covMat) == 0L) {
     return(0L)
   }
   NA_integer_
@@ -545,18 +545,18 @@ NULL
 #'   `thetaCols`, `omegaCols`, `sigmaCols`, `seCols`, and `schemaVersion`.
 #' @export
 rawResultsSchema <- function(fit) {
-  theta_cols <- .thetaNamesFromFit(fit)
-  omega_info <- .omegaInfoFromFit(fit)
-  sigma_info <- .sigmaInfoFromFit(fit)
-  param_cols <- c(theta_cols, omega_info$colName, sigma_info$colName)
-  se_cols <- paste0(param_cols, ".se")
+  thetaCols <- .thetaNamesFromFit(fit)
+  omegaInfo <- .omegaInfoFromFit(fit)
+  sigmaInfo <- .sigmaInfoFromFit(fit)
+  paramCols <- c(thetaCols, omegaInfo$colName, sigmaInfo$colName)
+  seCols <- paste0(paramCols, ".se")
 
   .normalizeSchemaList(list(
-    columns = c(.rawResultsBaseCols, param_cols, se_cols),
-    thetaCols = theta_cols,
-    omegaCols = omega_info$colName,
-    sigmaCols = sigma_info$colName,
-    seCols = se_cols
+    columns = c(.rawResultsBaseCols, paramCols, seCols),
+    thetaCols = thetaCols,
+    omegaCols = omegaInfo$colName,
+    sigmaCols = sigmaInfo$colName,
+    seCols = seCols
   ))
 }
 
@@ -640,12 +640,12 @@ rawResultsRow <- function(
   row$model_label <- modelLabel
   row$role <- role
 
-  fit_theta <- if (!is.null(fit)) {
+  fitTheta <- if (!is.null(fit)) {
     .thetaValuesFromFit(fit, schema$thetaCols)
   } else {
     stats::setNames(rep(NA_real_, length(schema$thetaCols)), schema$thetaCols)
   }
-  fit_omega <- if (!is.null(fit)) {
+  fitOmega <- if (!is.null(fit)) {
     stats::setNames(
       .omegaInfoFromFit(fit)$value,
       .omegaInfoFromFit(fit)$colName
@@ -653,7 +653,7 @@ rawResultsRow <- function(
   } else {
     stats::setNames(rep(NA_real_, length(schema$omegaCols)), schema$omegaCols)
   }
-  fit_sigma <- if (!is.null(fit)) {
+  fitSigma <- if (!is.null(fit)) {
     stats::setNames(
       .sigmaInfoFromFit(fit)$value,
       .sigmaInfoFromFit(fit)$colName
@@ -661,11 +661,11 @@ rawResultsRow <- function(
   } else {
     stats::setNames(rep(NA_real_, length(schema$sigmaCols)), schema$sigmaCols)
   }
-  fit_se <- if (!is.null(fit)) {
-    theta_se <- .thetaSeFromFit(fit, schema$thetaCols)
+  fitSe <- if (!is.null(fit)) {
+    thetaSe <- .thetaSeFromFit(fit, schema$thetaCols)
     stats::setNames(
       c(
-        theta_se,
+        thetaSe,
         rep(NA_real_, length(schema$omegaCols) + length(schema$sigmaCols))
       ),
       c(schema$thetaCols, schema$omegaCols, schema$sigmaCols)
@@ -682,59 +682,59 @@ rawResultsRow <- function(
     )
   }
 
-  theta_vals <- .vectorWithNames(theta, schema$thetaCols, "theta")
-  if (length(theta_vals) > 0L) {
-    fit_theta[intersect(names(theta_vals), schema$thetaCols)] <- theta_vals[
-      intersect(names(theta_vals), schema$thetaCols)
+  thetaVals <- .vectorWithNames(theta, schema$thetaCols, "theta")
+  if (length(thetaVals) > 0L) {
+    fitTheta[intersect(names(thetaVals), schema$thetaCols)] <- thetaVals[
+      intersect(names(thetaVals), schema$thetaCols)
     ]
   }
 
-  omega_vals <- if (is.matrix(omega)) {
+  omegaVals <- if (is.matrix(omega)) {
     info <- .matrixInfo(omega, "omega")
     stats::setNames(info$value, info$colName)
   } else {
     .vectorWithNames(omega, schema$omegaCols, "omega")
   }
-  if (length(omega_vals) > 0L) {
-    fit_omega[intersect(names(omega_vals), schema$omegaCols)] <- omega_vals[
-      intersect(names(omega_vals), schema$omegaCols)
+  if (length(omegaVals) > 0L) {
+    fitOmega[intersect(names(omegaVals), schema$omegaCols)] <- omegaVals[
+      intersect(names(omegaVals), schema$omegaCols)
     ]
   }
 
-  sigma_vals <- if (is.matrix(sigma)) {
+  sigmaVals <- if (is.matrix(sigma)) {
     info <- .matrixInfo(sigma, "sigma")
     stats::setNames(info$value, info$colName)
   } else {
     .vectorWithNames(sigma, schema$sigmaCols, "sigma")
   }
-  if (length(sigma_vals) > 0L) {
-    fit_sigma[intersect(names(sigma_vals), schema$sigmaCols)] <- sigma_vals[
-      intersect(names(sigma_vals), schema$sigmaCols)
+  if (length(sigmaVals) > 0L) {
+    fitSigma[intersect(names(sigmaVals), schema$sigmaCols)] <- sigmaVals[
+      intersect(names(sigmaVals), schema$sigmaCols)
     ]
   }
 
-  se_vals <- .vectorWithNames(
+  seVals <- .vectorWithNames(
     se,
     c(schema$thetaCols, schema$omegaCols, schema$sigmaCols),
     "se"
   )
-  if (length(se_vals) > 0L) {
-    fit_se[intersect(names(se_vals), names(fit_se))] <- se_vals[
-      intersect(names(se_vals), names(fit_se))
+  if (length(seVals) > 0L) {
+    fitSe[intersect(names(seVals), names(fitSe))] <- seVals[
+      intersect(names(seVals), names(fitSe))
     ]
   }
 
-  for (nm in names(fit_theta)) {
-    row[[nm]] <- fit_theta[[nm]]
+  for (nm in names(fitTheta)) {
+    row[[nm]] <- fitTheta[[nm]]
   }
-  for (nm in names(fit_omega)) {
-    row[[nm]] <- fit_omega[[nm]]
+  for (nm in names(fitOmega)) {
+    row[[nm]] <- fitOmega[[nm]]
   }
-  for (nm in names(fit_sigma)) {
-    row[[nm]] <- fit_sigma[[nm]]
+  for (nm in names(fitSigma)) {
+    row[[nm]] <- fitSigma[[nm]]
   }
-  for (nm in names(fit_se)) {
-    row[[paste0(nm, ".se")]] <- fit_se[[nm]]
+  for (nm in names(fitSe)) {
+    row[[paste0(nm, ".se")]] <- fitSe[[nm]]
   }
 
   row$minimization_successful <- if (is.null(minimizationSuccessful)) {
@@ -801,28 +801,28 @@ writeRawResults <- function(rows, dir, basename = "raw_results") {
   header <- attr(canonical, "rawResultsHeader", exact = TRUE)
 
   dir.create(dir, recursive = TRUE, showWarnings = FALSE)
-  csv_path <- file.path(dir, paste0(basename, ".csv"))
-  rds_path <- file.path(dir, paste0(basename, ".rds"))
-  header_path <- file.path(dir, paste0(basename, "_header.json"))
+  csvPath <- file.path(dir, paste0(basename, ".csv"))
+  rdsPath <- file.path(dir, paste0(basename, ".rds"))
+  headerPath <- file.path(dir, paste0(basename, "_header.json"))
 
   utils::write.csv(
     canonical,
-    csv_path,
+    csvPath,
     row.names = FALSE,
     na = "NA"
   )
-  saveRDS(canonical, rds_path)
+  saveRDS(canonical, rdsPath)
   writeLines(
     jsonlite::toJSON(header, auto_unbox = TRUE, pretty = TRUE, null = "null"),
-    con = header_path,
+    con = headerPath,
     useBytes = TRUE
   )
 
   invisible(list(
     data = canonical,
-    csvPath = csv_path,
-    rdsPath = rds_path,
-    headerPath = header_path
+    csvPath = csvPath,
+    rdsPath = rdsPath,
+    headerPath = headerPath
   ))
 }
 
@@ -869,7 +869,7 @@ writeRawResults <- function(rows, dir, basename = "raw_results") {
 #' @export
 readRawResults <- function(path) {
   paths <- .resolveRawResultsPaths(path)
-  header_path <- paste0(paths$basePath, "_header.json")
+  headerPath <- paste0(paths$basePath, "_header.json")
   ext <- tolower(tools::file_ext(paths$dataPath))
 
   data <- if (ext == "rds") {
@@ -883,8 +883,8 @@ readRawResults <- function(path) {
     )
   }
 
-  header <- if (file.exists(header_path)) {
-    jsonlite::fromJSON(header_path, simplifyVector = TRUE)
+  header <- if (file.exists(headerPath)) {
+    jsonlite::fromJSON(headerPath, simplifyVector = TRUE)
   } else {
     attr(data, "rawResultsHeader", exact = TRUE)
   }
@@ -900,15 +900,15 @@ readRawResults <- function(path) {
   if (is.null(version)) {
     .abortRawResults("Raw-results header is missing {.field schema_version}.")
   }
-  version_num <- as.integer(version[[1L]])
-  current_version <- .rawResultsSchemaVersion
-  if (version_num > current_version) {
+  versionNum <- as.integer(version[[1L]])
+  currentVersion <- .rawResultsSchemaVersion
+  if (versionNum > currentVersion) {
     .abortRawResults(
       paste0(
         "Raw-results schema version ",
-        version_num,
+        versionNum,
         " is newer than this package understands (",
-        current_version,
+        currentVersion,
         ")."
       )
     )
@@ -1028,7 +1028,7 @@ setupRawResultsFilter <- function(filter) {
   )
 }
 
-.rebuildLowerTriMatrix <- function(info, values, template, sample_id, kind) {
+.rebuildLowerTriMatrix <- function(info, values, template, sampleId, kind) {
   if (nrow(info) == 0L) {
     return(template)
   }
@@ -1038,7 +1038,7 @@ setupRawResultsFilter <- function(filter) {
     value <- values[[nm]]
     if (is.na(value)) {
       .abortRawResults(
-        "Sample {.val {sample_id}} is missing required {.val {kind}} parameter {.val {nm}}."
+        "Sample {.val {sampleId}} is missing required {.val {kind}} parameter {.val {nm}}."
       )
     }
     mat[info$row[[i]], info$col[[i]]] <- value
@@ -1067,20 +1067,20 @@ parseRawResultsParams <- function(rawres, fit, offset = 1L, filter = NULL) {
     .abortRawResults("{.arg offset} must be a single non-negative number.")
   }
 
-  raw_header <- attr(rawres, "rawResultsHeader", exact = TRUE)
-  if (is.null(raw_header)) {
-    raw_header <- .inferHeaderFromRows(rawres)
+  rawHeader <- attr(rawres, "rawResultsHeader", exact = TRUE)
+  if (is.null(rawHeader)) {
+    rawHeader <- .inferHeaderFromRows(rawres)
   }
-  raw_schema <- .schemaFromHeader(raw_header)
-  fit_schema <- rawResultsSchema(fit)
+  rawSchema <- .schemaFromHeader(rawHeader)
+  fitSchema <- rawResultsSchema(fit)
 
-  missing_theta <- setdiff(fit_schema$thetaCols, raw_schema$thetaCols)
-  missing_omega <- setdiff(fit_schema$omegaCols, raw_schema$omegaCols)
-  missing_sigma <- setdiff(fit_schema$sigmaCols, raw_schema$sigmaCols)
-  missing_cols <- c(missing_theta, missing_omega, missing_sigma)
-  if (length(missing_cols) > 0L) {
+  missingTheta <- setdiff(fitSchema$thetaCols, rawSchema$thetaCols)
+  missingOmega <- setdiff(fitSchema$omegaCols, rawSchema$omegaCols)
+  missingSigma <- setdiff(fitSchema$sigmaCols, rawSchema$sigmaCols)
+  missingCols <- c(missingTheta, missingOmega, missingSigma)
+  if (length(missingCols) > 0L) {
     .abortRawResults(
-      "Raw-results input is missing parameter column{?s} {.val {missing_cols}} required by the supplied fit."
+      "Raw-results input is missing parameter column{?s} {.val {missingCols}} required by the supplied fit."
     )
   }
 
@@ -1104,75 +1104,75 @@ parseRawResultsParams <- function(rawres, fit, offset = 1L, filter = NULL) {
     )
   }
 
-  theta_template <- .thetaValuesFromFit(fit, fit_schema$thetaCols)
-  omega_template <- fit$omega
-  if (!is.matrix(omega_template)) {
-    omega_template <- matrix(numeric(0), 0, 0)
+  thetaTemplate <- .thetaValuesFromFit(fit, fitSchema$thetaCols)
+  omegaTemplate <- fit$omega
+  if (!is.matrix(omegaTemplate)) {
+    omegaTemplate <- matrix(numeric(0), 0, 0)
   }
-  sigma_template <- fit$sigma
-  if (!is.matrix(sigma_template)) {
-    sigma_template <- matrix(numeric(0), 0, 0)
+  sigmaTemplate <- fit$sigma
+  if (!is.matrix(sigmaTemplate)) {
+    sigmaTemplate <- matrix(numeric(0), 0, 0)
   }
-  omega_info <- .omegaInfoFromFit(fit)
-  sigma_info <- .sigmaInfoFromFit(fit)
+  omegaInfo <- .omegaInfoFromFit(fit)
+  sigmaInfo <- .sigmaInfoFromFit(fit)
 
   out <- lapply(seq_len(nrow(rows)), function(i) {
     row <- rows[i, , drop = FALSE]
-    sample_id <- as.integer(row$sample[[1L]])
+    sampleId <- as.integer(row$sample[[1L]])
 
-    theta_vals <- theta_template
-    if (length(fit_schema$thetaCols) > 0L) {
-      theta_vals[fit_schema$thetaCols] <- as.numeric(row[
+    thetaVals <- thetaTemplate
+    if (length(fitSchema$thetaCols) > 0L) {
+      thetaVals[fitSchema$thetaCols] <- as.numeric(row[
         1,
-        fit_schema$thetaCols,
+        fitSchema$thetaCols,
         drop = TRUE
       ])
-      if (anyNA(theta_vals[fit_schema$thetaCols])) {
-        missing_theta <- fit_schema$thetaCols[is.na(theta_vals[
-          fit_schema$thetaCols
+      if (anyNA(thetaVals[fitSchema$thetaCols])) {
+        missingTheta <- fitSchema$thetaCols[is.na(thetaVals[
+          fitSchema$thetaCols
         ])]
         .abortRawResults(
-          "Sample {.val {sample_id}} is missing required theta parameter{?s} {.val {missing_theta}}."
+          "Sample {.val {sampleId}} is missing required theta parameter{?s} {.val {missingTheta}}."
         )
       }
     }
 
-    omega_vals <- if (length(fit_schema$omegaCols) > 0L) {
+    omegaVals <- if (length(fitSchema$omegaCols) > 0L) {
       stats::setNames(
-        as.numeric(row[1, fit_schema$omegaCols, drop = TRUE]),
-        fit_schema$omegaCols
+        as.numeric(row[1, fitSchema$omegaCols, drop = TRUE]),
+        fitSchema$omegaCols
       )
     } else {
       numeric(0)
     }
-    sigma_vals <- if (length(fit_schema$sigmaCols) > 0L) {
+    sigmaVals <- if (length(fitSchema$sigmaCols) > 0L) {
       stats::setNames(
-        as.numeric(row[1, fit_schema$sigmaCols, drop = TRUE]),
-        fit_schema$sigmaCols
+        as.numeric(row[1, fitSchema$sigmaCols, drop = TRUE]),
+        fitSchema$sigmaCols
       )
     } else {
       numeric(0)
     }
 
     list(
-      sample = sample_id,
+      sample = sampleId,
       source = row$source[[1L]],
       hypothesis = row$hypothesis[[1L]],
       modelLabel = row$model_label[[1L]],
       role = row$role[[1L]],
-      theta = theta_vals,
+      theta = thetaVals,
       omega = .rebuildLowerTriMatrix(
-        omega_info,
-        omega_vals,
-        omega_template,
-        sample_id = sample_id,
+        omegaInfo,
+        omegaVals,
+        omegaTemplate,
+        sampleId = sampleId,
         kind = "omega"
       ),
       sigma = .rebuildLowerTriMatrix(
-        sigma_info,
-        sigma_vals,
-        sigma_template,
-        sample_id = sample_id,
+        sigmaInfo,
+        sigmaVals,
+        sigmaTemplate,
+        sampleId = sampleId,
         kind = "sigma"
       )
     )

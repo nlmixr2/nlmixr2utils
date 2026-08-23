@@ -1,22 +1,26 @@
 Package: nlmixr2utils
-Title: Shared Infrastructure for nlmixr2 Extension Packages
+Title: Shared Infrastructure for 'nlmixr2' Extension Packages
 Version: 0.2
 Authors@R: c(
-    person("Matthew", "Fidler", email = "matthew.fidler@gmail.com", role = c("aut", "cre"),
+    person("Justin", "Wilkins", email = "justin.wilkins@occams.com", role = c("aut", "cre", "cph"),
+           comment = c(ORCID = "0000-0002-7099-9396")),
+    person("Matthew", "Fidler", email = "matthew.fidler@gmail.com", role = "aut",
            comment = c(ORCID = "0000-0001-8538-6691")),
     person("Vipul", "Mann", email = "vm2583@columbia.edu", role = "aut"),
     person("Vishal", "Sarsani", email = "vsarsani@umass.edu", role = "aut",
            comment = c(ORCID = "0000-0002-9272-3438")),
     person("Christian", "Bartels", email = "christian.bartels@novartis.com", role = "ctb"),
     person("Bill", "Denney", email = "wdenney@humanpredictions.com", role = "aut",
-           comment = c(ORCID = "0000-0002-5759-428X")),
-    person("Justin", "Wilkins", email = "justin.wilkins@occams.com", role = "aut",
-           comment = c(ORCID = "0000-0002-7099-9396"))
+           comment = c(ORCID = "0000-0002-5759-428X"))
   )
-Maintainer: Justin Wilkins <justin.wilkins@occams.com>
-Description: Shared worker-plan helpers, covariance utilities, model
+Description: Provides shared worker-plan helpers, covariance utilities, model
     reexports, equation rendering methods, and package data used by the
-    split nlmixr2 extension packages.
+    split 'nlmixr2' extension packages, including 'nlmixr2boot',
+    'nlmixr2llp', 'nlmixr2scm', and 'nlmixr2sir'. These helpers give the
+    extension packages a common canonical raw-results schema, run-cache and
+    seeding infrastructure, and equation-printing methods so that each
+    extension package does not need to reimplement this shared
+    functionality separately.
 Depends:
     R (>= 4.0)
 License: GPL (>= 3)
@@ -24,13 +28,11 @@ URL: https://github.com/nlmixr2/nlmixr2utils
 BugReports: https://github.com/nlmixr2/nlmixr2utils/issues
 Imports:
     cli (>= 3.4.0),
-    crayon,
     future,
     future.apply,
     jsonlite,
     knitr,
     methods,
-    nlme,
     nlmixr2est (>= 5.0.0),
     rxode2 (>= 5.0.0)
 Suggests:
@@ -40,5 +42,5 @@ Suggests:
 Config/testthat/edition: 3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 LazyData: true
+Config/roxygen2/version: 8.1.0

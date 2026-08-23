@@ -17,7 +17,30 @@ equation.}
 
 \item{output}{The type of output to request (currently, just "equations")}
 }
+\value{
+A \code{\link[knitr:asis_output]{knitr::asis_output()}} object containing the 'LaTeX' equation
+block, ready to be printed as-is inside a 'knitr'/'rmarkdown' document.
+}
 \description{
 Extract the equations from an nlmixr2/rxode2 model to produce a 'LaTeX'
 equation.
+}
+\examples{
+mod <- function() {
+  ini({
+    lka <- 0.45
+    lcl <- 1
+    lvc <- 3.45
+    propSd <- 0.5
+  })
+  model({
+    ka <- exp(lka)
+    cl <- exp(lcl)
+    vc <- exp(lvc)
+    cp <- linCmt()
+    cp ~ prop(propSd)
+  })
+}
+ui <- rxode2::rxode(mod)
+knit_print(ui)
 }

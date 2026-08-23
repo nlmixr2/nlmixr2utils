@@ -2,6 +2,7 @@
 
 S3method(extractEqHelper,"(")
 S3method(extractEqHelper,"function")
+S3method(extractEqHelper,"if")
 S3method(extractEqHelper,"{")
 S3method(extractEqHelper,call)
 S3method(extractEqHelper,character)
@@ -35,7 +36,11 @@ export(withRunSeed)
 export(writeRawResults)
 export(writeRunState)
 importFrom(knitr,knit_print)
-importFrom(nlmixr2est,nlmixr2)
-importFrom(nlmixr2est,nlmixrWithTiming)
-importFrom(rxode2,ini)
-importFrom(rxode2,model)
+importFrom(nlmixr2est,
+  nlmixr2,
+  nlmixrWithTiming
+)
+importFrom(rxode2,
+  ini,
+  model
+)
