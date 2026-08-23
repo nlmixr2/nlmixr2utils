@@ -1,3 +1,33 @@
+# nlmixr2utils 0.3
+
+* `.withWorkerPlan()` now guards against requesting more parallel OS threads
+  than the machine has: whenever more than one worker is involved, it
+  checks the effective worker count (from `workers`, or from the ambient
+  `future` plan when `workers = NULL`) times the effective rxode2 thread
+  count per worker (from the new `rxThreads` argument, or from
+  `rxode2::getRxThreads()` when unspecified) against the total physical
+  core count (`parallel::detectCores()`), and aborts with a clear message
+  before evaluating anything if the product would exceed it. A single
+  worker is never subject to this check.
+* **Breaking change:** because rxode2's own default thread count was never
+  designed with the assumption that multiple worker processes would each
+  run a copy of it, existing calls to `.withWorkerPlan()` with `workers >
+  1` or `workers = "auto"` that do not also set `rxThreads` will, on most
+  real multi-core machines, now abort where they previously ran silently
+  oversubscribed. Set `rxThreads` explicitly (e.g. `rxThreads = 1`) to
+  restore the prior behavior.
+* New `resolveRxThreads(workers, rxThreads)` resolves the effective rxode2
+  thread count for a given `workers`/`rxThreads` combination, validating
+  both arguments.
+* `.plap()` gained an `rxThreads` argument that propagates the resolved
+  thread count into every task (whether it runs in the main process or a
+  `multisession` worker) and restores each worker's own prior setting
+  afterward, so persistent workers reused across calls don't leak state
+  between them. `.withWorkerPlan()` also best-effort broadcasts the
+  resolved thread count to every worker in the active plan on its own, so
+  callers that don't route `rxThreads` through their own `.plap()` calls
+  still get an accurate thread count applied.
+
 # nlmixr2utils 0.2
 
 * Promoted the shared raw-results and run-cache helper APIs to stable status now that downstream bootstrap and SIR packages use the common output, restart, and seeding infrastructure.
