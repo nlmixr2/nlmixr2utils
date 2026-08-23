@@ -169,6 +169,14 @@ test_that(".resolveEffectiveWorkers: 'auto' returns a positive integer", {
   expect_gte(result, 1L)
 })
 
+test_that(".resolveEffectiveWorkers: rejects invalid values", {
+  bad_values <- list(0, -1, NA_real_, NaN, Inf, c(1, 2), 1.5, "bad")
+
+  for (workers in bad_values) {
+    expect_error(.cur$.resolveEffectiveWorkers(workers), "workers")
+  }
+})
+
 test_that(".resolveTotalCores: uses parallel::detectCores(), not a policy-shrunk value", {
   real_cores <- parallel::detectCores()
   skip_if(is.na(real_cores), "parallel::detectCores() could not be determined")

@@ -112,6 +112,7 @@
 #' .resolveEffectiveWorkers(NULL)
 #' @export
 .resolveEffectiveWorkers <- function(workers) {
+  .validateWorkers(workers)
   if (is.null(workers)) {
     if (requireNamespace("future", quietly = TRUE)) {
       return(as.integer(future::nbrOfWorkers()))
@@ -145,12 +146,6 @@
   n <- suppressWarnings(as.integer(parallel::detectCores()))
   if (!is.na(n) && n >= 1L) {
     return(n)
-  }
-  if (requireNamespace("future", quietly = TRUE)) {
-    n <- suppressWarnings(as.integer(future::availableCores()))
-    if (!is.na(n) && n >= 1L) {
-      return(n)
-    }
   }
   NA_integer_
 }
