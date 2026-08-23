@@ -4,7 +4,7 @@
 \alias{.withWorkerPlan}
 \title{Temporarily set a future parallel plan for the duration of an expression}
 \usage{
-.withWorkerPlan(workers, expr)
+.withWorkerPlan(workers, expr, rxThreads = NULL)
 }
 \arguments{
 \item{workers}{\code{NULL} (leave the current plan unchanged),
@@ -12,14 +12,34 @@
 \code{multisession} workers), or \code{"auto"} (use
 \code{future::availableCores(omit = 1)}).}
 
-\item{expr}{expression to evaluate; the prior plan is always restored on
-exit, even if \code{expr} throws an error.}
+\item{expr}{expression to evaluate; the prior plan and the prior rxode2
+thread count are always restored on exit, even if \code{expr} throws an
+error.}
+
+\item{rxThreads}{\code{NULL} (use the current \code{rxode2::getRxThreads()}
+value), \code{"auto"} (divide the total core count evenly across the
+effective worker count), or a positive integer -- the rxode2 thread
+count applied in the main session for the duration of \code{expr}, and
+best-effort broadcast into every worker of the active plan (whether
+newly created by this call or already ambient). \code{.plap()}'s own
+\code{rxThreads} argument remains the authoritative per-task mechanism
+for callers that use it; this broadcast exists so callers that do not
+still get an accurate thread count applied.}
 }
 \value{
 value of \code{expr}
 }
 \description{
-Temporarily set a future parallel plan for the duration of an expression
+Also guards against requesting more OS threads than the machine has,
+whenever more than one worker is involved: the \emph{effective} number of
+workers (from \code{workers}, or from the ambient \code{future} plan
+when \code{workers = NULL}) times the \emph{effective} number of rxode2
+threads per worker (from \code{rxThreads}, or from
+\code{rxode2::getRxThreads()} when \code{rxThreads = NULL}) must not
+exceed the total core count, or the call aborts before anything is
+evaluated or any global state is changed. A single worker (the default,
+sequential case) is never subject to this check -- it cannot
+oversubscribe by definition.
 }
 \examples{
 .withWorkerPlan(NULL, 1 + 1)
