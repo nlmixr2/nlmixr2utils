@@ -119,6 +119,30 @@ test_that(".plap: future.apply path preserves order", {
 })
 
 # =============================================================================
+# .validateRxThreads
+# =============================================================================
+
+test_that(".validateRxThreads: accepts NULL", {
+  expect_no_error(.cur$.validateRxThreads(NULL))
+})
+
+test_that(".validateRxThreads: accepts 'auto'", {
+  expect_no_error(.cur$.validateRxThreads("auto"))
+})
+
+test_that(".validateRxThreads: accepts a positive integer", {
+  expect_no_error(.cur$.validateRxThreads(4L))
+})
+
+test_that(".validateRxThreads: rejects invalid values", {
+  bad_values <- list(0, -1, NA_real_, NaN, Inf, c(1, 2), 1.5, "bad")
+
+  for (rxThreads in bad_values) {
+    expect_error(.cur$.validateRxThreads(rxThreads), "rxThreads")
+  }
+})
+
+# =============================================================================
 # .withWorkerPlan
 # =============================================================================
 

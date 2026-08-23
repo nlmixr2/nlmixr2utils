@@ -70,6 +70,34 @@
   invisible(NULL)
 }
 
+#' Validate an rxode2-threads-per-worker specification
+#'
+#' @param rxThreads \code{NULL}, \code{"auto"}, \code{1}, or a positive
+#'   integer.
+#' @return Invisibly returns \code{NULL} when \code{rxThreads} is valid.
+#' @examples
+#' .validateRxThreads(1L)
+#' .validateRxThreads("auto")
+#' @export
+.validateRxThreads <- function(rxThreads) {
+  if (is.null(rxThreads) || identical(rxThreads, "auto")) {
+    return(invisible(NULL))
+  }
+  if (
+    !is.numeric(rxThreads) ||
+      length(rxThreads) != 1L ||
+      is.na(rxThreads) ||
+      !is.finite(rxThreads) ||
+      rxThreads < 1 ||
+      rxThreads != as.integer(rxThreads)
+  ) {
+    cli::cli_abort(
+      "{.arg rxThreads} must be NULL, \"auto\", 1, or a positive integer."
+    )
+  }
+  invisible(NULL)
+}
+
 #' Temporarily set a future parallel plan for the duration of an expression
 #'
 #' @param workers \code{NULL} (leave the current plan unchanged),
