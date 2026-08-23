@@ -10,7 +10,11 @@ resolveRxThreads(workers, rxThreads = NULL)
 \arguments{
 \item{workers}{the same \code{workers} value passed to the caller's own
 \code{workers=} argument -- used only to compute \code{rxThreads =
-"auto"}.}
+"auto"}. Note that \code{workers} is validated on \strong{every} call,
+even when the branch taken doesn't otherwise use it (\code{rxThreads =
+NULL} or an explicit integer) -- so a caller passing an invalid
+\code{workers} alongside a perfectly valid \code{rxThreads} still gets
+an error about \code{workers}. This is intentional defense-in-depth.}
 
 \item{rxThreads}{\code{NULL} (use the current \code{rxode2::getRxThreads()}
 value), \code{"auto"} (divide the total core count evenly across

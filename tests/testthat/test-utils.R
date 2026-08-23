@@ -318,6 +318,12 @@ test_that("resolveRxThreads: 'auto' never returns less than 1", {
   expect_equal(result, 1L)
 })
 
+test_that("resolveRxThreads: 'auto' falls back to 1L when total cores can't be determined", {
+  testthat::local_mocked_bindings(.resolveTotalCores = function() NA_integer_)
+  result <- .cur$resolveRxThreads(workers = 8L, rxThreads = "auto")
+  expect_equal(result, 1L)
+})
+
 test_that("resolveRxThreads: rejects invalid rxThreads", {
   expect_error(
     .cur$resolveRxThreads(workers = NULL, rxThreads = -1),

@@ -160,7 +160,11 @@
 #'
 #' @param workers the same \code{workers} value passed to the caller's own
 #'   \code{workers=} argument -- used only to compute \code{rxThreads =
-#'   "auto"}.
+#'   "auto"}. Note that \code{workers} is validated on \strong{every} call,
+#'   even when the branch taken doesn't otherwise use it (\code{rxThreads =
+#'   NULL} or an explicit integer) -- so a caller passing an invalid
+#'   \code{workers} alongside a perfectly valid \code{rxThreads} still gets
+#'   an error about \code{workers}. This is intentional defense-in-depth.
 #' @param rxThreads \code{NULL} (use the current \code{rxode2::getRxThreads()}
 #'   value), \code{"auto"} (divide the total core count evenly across
 #'   \code{workers}, minimum \code{1}), or a positive integer.
@@ -176,10 +180,17 @@ resolveRxThreads <- function(workers, rxThreads = NULL) {
     return(as.integer(rxode2::getRxThreads()))
   }
   if (identical(rxThreads, "auto")) {
+    # workers was already validated above by .validateWorkers(); this call
+    # is not redundant, it resolves NULL/"auto"/integer down to an actual
+    # worker count.
     effectiveWorkers <- .resolveEffectiveWorkers(workers)
     totalCores <- .resolveTotalCores()
     if (is.na(totalCores)) {
-      return(as.integer(rxode2::getRxThreads()))
+      # Total core count could not be determined -- degrade to the most
+      # conservative value (1L) rather than guessing from rxode2's current
+      # thread setting, which can itself be a large, unauthoritative value
+      # and would risk exactly the oversubscription "auto" exists to avoid.
+      return(1L)
     }
     return(max(1L, as.integer(floor(totalCores / effectiveWorkers))))
   }
