@@ -7,21 +7,42 @@
 #' @param X       vector or list to iterate over
 #' @param FUN     function applied to each element of \code{X}
 #' @param ...     additional arguments passed to \code{FUN}
+#' @param rxThreads optional; when not \code{NULL}, every call to \code{FUN}
+#'   captures its own worker's current \code{rxode2::getRxThreads()} value,
+#'   sets \code{rxode2::setRxThreads(rxThreads)}, runs \code{FUN}, and
+#'   restores the captured value on exit -- applied identically whether the
+#'   call runs in the main process or inside a parallel worker, and safe
+#'   for persistent \code{multisession} workers reused across separate
+#'   \code{.plap()} calls (a later call does not inherit an earlier call's
+#'   setting).
 #' @param .label  optional \code{function(x) -> character} producing a per-item
 #'   progress label; \code{x} is each element of \code{X}
 #' @return list of results in the same order as \code{X}
 #' @examples
 #' .plap(1:3, function(x) x * 2)
 #' @export
-.plap <- function(X, FUN, ..., .label = NULL) {
+.plap <- function(X, FUN, ..., rxThreads = NULL, .label = NULL) {
+  wrappedFUN <- if (!is.null(rxThreads)) {
+    force(rxThreads)
+    force(FUN)
+    function(x, ...) {
+      origThreads <- rxode2::getRxThreads()
+      on.exit(rxode2::setRxThreads(origThreads), add = TRUE)
+      rxode2::setRxThreads(rxThreads)
+      FUN(x, ...)
+    }
+  } else {
+    FUN
+  }
+
   if (!requireNamespace("future.apply", quietly = TRUE)) {
-    return(lapply(X, FUN, ...))
+    return(lapply(X, wrappedFUN, ...))
   }
 
   if (!requireNamespace("progressr", quietly = TRUE)) {
     return(future.apply::future_lapply(
       X,
-      FUN,
+      wrappedFUN,
       ...,
       future.seed = TRUE,
       future.packages = "nlmixr2utils"
@@ -34,7 +55,7 @@
       X,
       function(x, ...) {
         on.exit(p(message = if (!is.null(.label)) .label(x) else ""))
-        FUN(x, ...)
+        wrappedFUN(x, ...)
       },
       ...,
       future.seed = TRUE,

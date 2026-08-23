@@ -118,6 +118,80 @@ test_that(".plap: future.apply path preserves order", {
   expect_equal(unlist(res), c(10, 20, 30, 40, 50))
 })
 
+test_that(".plap: rxThreads propagates under a sequential plan", {
+  skip_if_not_installed("future")
+  skip_if_not_installed("future.apply")
+  skip_if_not_installed("rxode2")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+  threads_before <- rxode2::getRxThreads()
+  on.exit(rxode2::setRxThreads(threads_before), add = TRUE)
+  future::plan("sequential")
+
+  target <- if (threads_before == 1L) 2L else 1L
+  res <- .cur$.plap(1:2, function(x) rxode2::getRxThreads(), rxThreads = target)
+
+  expect_equal(unlist(res), c(target, target))
+})
+
+test_that(".plap: rxThreads propagates under a multisession plan", {
+  skip_if_not_installed("future")
+  skip_if_not_installed("future.apply")
+  skip_if_not_installed("rxode2")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+  future::plan("multisession", workers = 2L)
+
+  res <- .cur$.plap(1:2, function(x) rxode2::getRxThreads(), rxThreads = 1L)
+
+  expect_equal(unlist(res), c(1L, 1L))
+})
+
+test_that(".plap: NULL rxThreads leaves FUN unwrapped (no rxode2 call forced)", {
+  # FUN must run unchanged when rxThreads is NULL -- confirmed by a FUN that
+  # has nothing to do with rxode2 at all still working normally.
+  res <- .cur$.plap(1:3, function(x) x * 2, rxThreads = NULL)
+  expect_equal(unlist(res), c(2, 4, 6))
+})
+
+test_that(".plap: restores each worker's own prior thread count after a task", {
+  skip_if_not_installed("future")
+  skip_if_not_installed("future.apply")
+  skip_if_not_installed("rxode2")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+  threads_before <- rxode2::getRxThreads()
+  on.exit(rxode2::setRxThreads(threads_before), add = TRUE)
+  future::plan("sequential")
+
+  target <- if (threads_before == 1L) 2L else 1L
+  .cur$.plap(1L, function(x) rxode2::getRxThreads(), rxThreads = target)
+
+  # after the call, the main session's (== the sequential "worker"'s) own
+  # setting must be back to what it was before the task ran
+  expect_equal(rxode2::getRxThreads(), threads_before)
+})
+
+test_that(".plap: a later NULL call does not inherit an earlier call's rxThreads on a reused multisession pool", {
+  skip_if_not_installed("future")
+  skip_if_not_installed("future.apply")
+  skip_if_not_installed("rxode2")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+  threads_before <- rxode2::getRxThreads()
+
+  future::plan("multisession", workers = 1L)
+
+  target <- if (threads_before == 1L) 2L else 1L
+  .cur$.plap(1L, function(x) rxode2::getRxThreads(), rxThreads = target)
+
+  # same (single, persistent) worker, second call, rxThreads = NULL: must
+  # not still be reading back `target` from the first call.
+  res <- .cur$.plap(1L, function(x) rxode2::getRxThreads(), rxThreads = NULL)
+
+  expect_false(identical(unlist(res), target))
+})
+
 # =============================================================================
 # .validateRxThreads
 # =============================================================================

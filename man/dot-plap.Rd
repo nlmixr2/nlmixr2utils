@@ -4,7 +4,7 @@
 \alias{.plap}
 \title{Apply FUN over X with optional parallel execution and progress reporting}
 \usage{
-.plap(X, FUN, ..., .label = NULL)
+.plap(X, FUN, ..., rxThreads = NULL, .label = NULL)
 }
 \arguments{
 \item{X}{vector or list to iterate over}
@@ -12,6 +12,15 @@
 \item{FUN}{function applied to each element of \code{X}}
 
 \item{...}{additional arguments passed to \code{FUN}}
+
+\item{rxThreads}{optional; when not \code{NULL}, every call to \code{FUN}
+captures its own worker's current \code{rxode2::getRxThreads()} value,
+sets \code{rxode2::setRxThreads(rxThreads)}, runs \code{FUN}, and
+restores the captured value on exit -- applied identically whether the
+call runs in the main process or inside a parallel worker, and safe
+for persistent \code{multisession} workers reused across separate
+\code{.plap()} calls (a later call does not inherit an earlier call's
+setting).}
 
 \item{.label}{optional \code{function(x) -> character} producing a per-item
 progress label; \code{x} is each element of \code{X}}
