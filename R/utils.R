@@ -214,9 +214,11 @@ resolveRxThreads <- function(workers, rxThreads = NULL) {
 #'   \code{1} (force sequential), a positive integer (use that many
 #'   \code{multisession} workers), or \code{"auto"} (use
 #'   \code{future::availableCores(omit = 1)}).
-#' @param expr expression to evaluate; the prior plan and the prior rxode2
-#'   thread count are always restored on exit, even if \code{expr} throws an
-#'   error.
+#' @param expr expression to evaluate; the prior plan is always restored on
+#'   exit, even if \code{expr} throws an error. The main session's rxode2
+#'   thread count is restored the same way; thread counts broadcast into an
+#'   \emph{ambient} plan's existing workers (i.e. when \code{workers = NULL})
+#'   are not reverted, since this function never created or owns that plan.
 #' @param rxThreads \code{NULL} (use the current \code{rxode2::getRxThreads()}
 #'   value), \code{"auto"} (divide the total core count evenly across the
 #'   effective worker count), or a positive integer -- the rxode2 thread
