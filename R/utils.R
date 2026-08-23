@@ -199,19 +199,79 @@ resolveRxThreads <- function(workers, rxThreads = NULL) {
 
 #' Temporarily set a future parallel plan for the duration of an expression
 #'
+#' Also guards against requesting more OS threads than the machine has,
+#' whenever more than one worker is involved: the *effective* number of
+#' workers (from \code{workers}, or from the ambient \code{future} plan
+#' when \code{workers = NULL}) times the *effective* number of rxode2
+#' threads per worker (from \code{rxThreads}, or from
+#' \code{rxode2::getRxThreads()} when \code{rxThreads = NULL}) must not
+#' exceed the total core count, or the call aborts before anything is
+#' evaluated or any global state is changed. A single worker (the default,
+#' sequential case) is never subject to this check -- it cannot
+#' oversubscribe by definition.
+#'
 #' @param workers \code{NULL} (leave the current plan unchanged),
 #'   \code{1} (force sequential), a positive integer (use that many
 #'   \code{multisession} workers), or \code{"auto"} (use
 #'   \code{future::availableCores(omit = 1)}).
-#' @param expr expression to evaluate; the prior plan is always restored on
-#'   exit, even if \code{expr} throws an error.
+#' @param expr expression to evaluate; the prior plan and the prior rxode2
+#'   thread count are always restored on exit, even if \code{expr} throws an
+#'   error.
+#' @param rxThreads \code{NULL} (use the current \code{rxode2::getRxThreads()}
+#'   value), \code{"auto"} (divide the total core count evenly across the
+#'   effective worker count), or a positive integer -- the rxode2 thread
+#'   count applied in the main session for the duration of \code{expr}, and
+#'   best-effort broadcast into every worker of the active plan (whether
+#'   newly created by this call or already ambient). \code{.plap()}'s own
+#'   \code{rxThreads} argument remains the authoritative per-task mechanism
+#'   for callers that use it; this broadcast exists so callers that do not
+#'   still get an accurate thread count applied.
 #' @return value of \code{expr}
 #' @examples
 #' .withWorkerPlan(NULL, 1 + 1)
 #' @export
-.withWorkerPlan <- function(workers, expr) {
-  .validateWorkers(workers)
+.withWorkerPlan <- function(workers, expr, rxThreads = NULL) {
+  effectiveRxThreads <- resolveRxThreads(workers, rxThreads)
+  effectiveWorkers <- .resolveEffectiveWorkers(workers)
+  totalCores <- .resolveTotalCores()
+  requested <- as.double(effectiveWorkers) * as.double(effectiveRxThreads)
+
+  cli::cli_inform(c(
+    "i" = "Workers                 : {effectiveWorkers}",
+    "i" = "rxode2 threads / worker : {effectiveRxThreads}",
+    "i" = "Total threads requested : {requested}",
+    "i" = "Cores available         : {if (is.na(totalCores)) 'unknown' else totalCores}"
+  ))
+
+  # A single worker cannot oversubscribe -- rxode2's own thread count there
+  # is already bounded by this machine's hardware, independent of this
+  # feature.
+  if (
+    effectiveWorkers > 1L &&
+      !is.na(totalCores) &&
+      requested > as.double(totalCores)
+  ) {
+    cli::cli_abort(c(
+      "!" = paste0(
+        "Requested {effectiveWorkers} worker{?s} x {effectiveRxThreads} ",
+        "rxode2 thread{?s} = {requested} threads, but only {totalCores} ",
+        "core{?s} {?is/are} available."
+      ),
+      "i" = paste0(
+        "Lower {.arg workers}, or set {.arg rxThreads} (e.g. ",
+        "{.code rxThreads = 1}) so their product is <= {totalCores}."
+      )
+    ))
+  }
+
+  origThreads <- rxode2::getRxThreads()
+  on.exit(rxode2::setRxThreads(origThreads), add = TRUE)
+
   if (is.null(workers)) {
+    rxode2::setRxThreads(effectiveRxThreads)
+    if (effectiveWorkers > 1L) {
+      .broadcastRxThreads(effectiveRxThreads, effectiveWorkers)
+    }
     return(force(expr))
   }
   if (!requireNamespace("future", quietly = TRUE)) {
@@ -219,21 +279,57 @@ resolveRxThreads <- function(workers, rxThreads = NULL) {
       "!" = "Package {.pkg future} is not installed.",
       "i" = "Ignoring {.arg workers} and running sequentially."
     ))
+    rxode2::setRxThreads(effectiveRxThreads)
     return(force(expr))
-  }
-  if (identical(workers, "auto")) {
-    workers <- max(1L, as.integer(future::availableCores(omit = 1L)))
-  } else {
-    workers <- as.integer(workers)
   }
   oplan <- future::plan()
   on.exit(future::plan(oplan), add = TRUE)
-  if (workers == 1L) {
+  if (effectiveWorkers == 1L) {
     future::plan("sequential")
   } else {
-    future::plan("multisession", workers = workers)
+    future::plan("multisession", workers = effectiveWorkers)
+  }
+  rxode2::setRxThreads(effectiveRxThreads)
+  if (effectiveWorkers > 1L) {
+    .broadcastRxThreads(effectiveRxThreads, effectiveWorkers)
   }
   force(expr)
+}
+
+#' Broadcast an rxode2 thread-count setting to every worker in the current
+#' future plan
+#'
+#' Best-effort: dispatches exactly \code{nWorkers} tasks under the current
+#' plan, each setting \code{rxode2::setRxThreads(rxThreads)} in whichever
+#' worker process it lands on. \code{future}'s default round-robin
+#' scheduling makes each of \code{nWorkers} tasks land on a distinct worker
+#' in the common case, so this closes the propagation gap for callers that
+#' dispatch their own tasks without separately passing \code{rxThreads} to
+#' \code{.plap()} -- it is not a hard guarantee for every possible
+#' scheduling order (wrapped in \code{tryCatch()}, never blocks the run on
+#' failure), so \code{.plap(rxThreads = ...)} remains the authoritative
+#' per-task mechanism for callers that use it.
+#' @param rxThreads thread count to set in each worker
+#' @param nWorkers number of workers in the current plan
+#' @return invisible NULL
+#' @noRd
+.broadcastRxThreads <- function(rxThreads, nWorkers) {
+  if (!requireNamespace("future.apply", quietly = TRUE)) {
+    return(invisible(NULL))
+  }
+  tryCatch(
+    future.apply::future_lapply(
+      seq_len(nWorkers),
+      function(i) {
+        rxode2::setRxThreads(rxThreads)
+        NULL
+      },
+      future.seed = FALSE,
+      future.packages = "rxode2"
+    ),
+    error = function(e) invisible(NULL)
+  )
+  invisible(NULL)
 }
 
 #' Make an estimation control object quieter and faster

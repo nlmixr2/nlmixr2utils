@@ -212,7 +212,10 @@ test_that(".withWorkerPlan: NULL workers evaluates expr and returns its value", 
 })
 
 test_that(".withWorkerPlan: NULL workers works without future installed", {
-  # NULL path short-circuits before any requireNamespace("future") check
+  # NULL still evaluates expr and returns its value; effectiveWorkers
+  # resolves to 1L (not an error) when future isn't installed, and the
+  # guard is skipped whenever effectiveWorkers <= 1, so this path stays
+  # available either way.
   result <- .cur$.withWorkerPlan(NULL, "hello")
   expect_equal(result, "hello")
 })
@@ -253,12 +256,12 @@ test_that(".withWorkerPlan: error from expr is propagated to caller", {
 
 test_that(".withWorkerPlan: workers='auto' evaluates expr without error", {
   skip_if_not_installed("future")
-  expect_no_error(.cur$.withWorkerPlan("auto", TRUE))
+  expect_no_error(.cur$.withWorkerPlan("auto", rxThreads = 1L, TRUE))
 })
 
 test_that(".withWorkerPlan: workers='auto' returns expr value", {
   skip_if_not_installed("future")
-  result <- .cur$.withWorkerPlan("auto", 42L)
+  result <- .cur$.withWorkerPlan("auto", rxThreads = 1L, 42L)
   expect_equal(result, 42L)
 })
 
@@ -275,9 +278,167 @@ test_that(".withWorkerPlan: workers=2 restores original plan", {
   plan_before <- class(future::plan())
   on.exit(future::plan("sequential"), add = TRUE)
 
-  .cur$.withWorkerPlan(2L, NULL)
+  .cur$.withWorkerPlan(2L, rxThreads = 1L, NULL)
 
   expect_equal(class(future::plan()), plan_before)
+})
+
+test_that(".withWorkerPlan: guard fires when workers * rxThreads exceeds cores (mocked)", {
+  skip_if_not_installed("future")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+  testthat::local_mocked_bindings(.resolveTotalCores = function() 4L)
+
+  expect_error(
+    .cur$.withWorkerPlan(workers = 2L, rxThreads = 3L, expr = NULL),
+    class = "rlang_error"
+  )
+})
+
+test_that(".withWorkerPlan: guard does not fire when product is within cores (mocked)", {
+  skip_if_not_installed("future")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+  testthat::local_mocked_bindings(.resolveTotalCores = function() 8L)
+
+  expect_equal(
+    .cur$.withWorkerPlan(workers = 2L, rxThreads = 3L, expr = 41 + 1),
+    42
+  )
+})
+
+test_that(".withWorkerPlan: guard is skipped for a single worker even if the product would exceed cores", {
+  # This is the case the design got wrong initially: effectiveWorkers <= 1
+  # must never abort, regardless of rxThreads or the mocked core count --
+  # a single process cannot oversubscribe by definition.
+  skip_if_not_installed("future")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+  testthat::local_mocked_bindings(.resolveTotalCores = function() 2L)
+
+  expect_equal(
+    .cur$.withWorkerPlan(workers = 1L, rxThreads = 999L, expr = 1 + 1),
+    2
+  )
+})
+
+test_that(".withWorkerPlan: guard fires for an ambient parallel plan when workers = NULL (mocked)", {
+  skip_if_not_installed("future")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+  testthat::local_mocked_bindings(.resolveTotalCores = function() 4L)
+
+  future::plan("multisession", workers = 2L)
+
+  expect_error(
+    .cur$.withWorkerPlan(workers = NULL, rxThreads = 3L, expr = NULL),
+    class = "rlang_error"
+  )
+})
+
+test_that(".withWorkerPlan: prints the exact effective workers/threads/cores numbers", {
+  skip_if_not_installed("future")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+  testthat::local_mocked_bindings(.resolveTotalCores = function() 8L)
+
+  expect_message(
+    .cur$.withWorkerPlan(workers = 2L, rxThreads = 3L, expr = NULL),
+    "Workers.*2"
+  )
+  expect_message(
+    .cur$.withWorkerPlan(workers = 2L, rxThreads = 3L, expr = NULL),
+    "threads / worker.*3"
+  )
+  expect_message(
+    .cur$.withWorkerPlan(workers = 2L, rxThreads = 3L, expr = NULL),
+    "Cores available.*8"
+  )
+})
+
+test_that(".withWorkerPlan: restores rxode2 thread count on clean exit", {
+  skip_if_not_installed("future")
+  skip_if_not_installed("rxode2")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+  threads_before <- rxode2::getRxThreads()
+  on.exit(rxode2::setRxThreads(threads_before), add = TRUE)
+
+  .cur$.withWorkerPlan(workers = 1L, rxThreads = 1L, expr = NULL)
+
+  expect_equal(rxode2::getRxThreads(), threads_before)
+})
+
+test_that(".withWorkerPlan: restores rxode2 thread count when expr throws", {
+  skip_if_not_installed("future")
+  skip_if_not_installed("rxode2")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+  threads_before <- rxode2::getRxThreads()
+  on.exit(rxode2::setRxThreads(threads_before), add = TRUE)
+
+  try(
+    .cur$.withWorkerPlan(
+      workers = 1L,
+      rxThreads = 1L,
+      expr = stop("intentional error")
+    ),
+    silent = TRUE
+  )
+
+  expect_equal(rxode2::getRxThreads(), threads_before)
+})
+
+test_that(".withWorkerPlan: rxThreads propagates to the main-session rxode2 setting", {
+  skip_if_not_installed("future")
+  skip_if_not_installed("rxode2")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+  threads_before <- rxode2::getRxThreads()
+  on.exit(rxode2::setRxThreads(threads_before), add = TRUE)
+
+  target <- if (threads_before == 1L) 2L else 1L
+  result <- .cur$.withWorkerPlan(
+    workers = 1L,
+    rxThreads = target,
+    expr = rxode2::getRxThreads()
+  )
+
+  expect_equal(result, target)
+})
+
+test_that(".withWorkerPlan: broadcasts rxThreads into multisession workers", {
+  skip_if_not_installed("future")
+  skip_if_not_installed("future.apply")
+  skip_if_not_installed("rxode2")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+  threads_before <- rxode2::getRxThreads()
+  # Mock a generous core count so this test exercises broadcast behavior in
+  # isolation from the guard -- workers=2 * target(<=2) must never trip the
+  # abort here regardless of the real test machine's actual core count.
+  testthat::local_mocked_bindings(.resolveTotalCores = function() 100L)
+
+  target <- if (threads_before == 1L) 2L else 1L
+  # A caller that never itself passes rxThreads to .plap()/future_lapply()
+  # should still see workers running at the resolved thread count, via
+  # the broadcast.
+  result <- .cur$.withWorkerPlan(
+    workers = 2L,
+    rxThreads = target,
+    expr = future.apply::future_lapply(1:2, function(i) rxode2::getRxThreads())
+  )
+
+  expect_equal(unlist(result), c(target, target))
+})
+
+test_that(".withWorkerPlan: invalid workers is rejected before any plan change", {
+  skip_if_not_installed("future")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+
+  expect_error(.cur$.withWorkerPlan(workers = -1, rxThreads = 1L, expr = NULL))
+  expect_equal(class(future::plan()), class(plan_before))
 })
 
 # =============================================================================
