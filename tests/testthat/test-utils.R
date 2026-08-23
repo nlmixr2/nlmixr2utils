@@ -143,6 +143,59 @@ test_that(".validateRxThreads: rejects invalid values", {
 })
 
 # =============================================================================
+# .resolveEffectiveWorkers / .resolveTotalCores
+# =============================================================================
+
+test_that(".resolveEffectiveWorkers: explicit integer passes through", {
+  expect_equal(.cur$.resolveEffectiveWorkers(4L), 4L)
+})
+
+test_that(".resolveEffectiveWorkers: NULL reflects the ambient plan", {
+  skip_if_not_installed("future")
+  plan_before <- future::plan()
+  on.exit(future::plan(plan_before), add = TRUE)
+
+  future::plan("sequential")
+  expect_equal(.cur$.resolveEffectiveWorkers(NULL), 1L)
+
+  future::plan("multisession", workers = 2L)
+  expect_equal(.cur$.resolveEffectiveWorkers(NULL), 2L)
+})
+
+test_that(".resolveEffectiveWorkers: 'auto' returns a positive integer", {
+  skip_if_not_installed("future")
+  result <- .cur$.resolveEffectiveWorkers("auto")
+  expect_type(result, "integer")
+  expect_gte(result, 1L)
+})
+
+test_that(".resolveTotalCores: uses parallel::detectCores(), not a policy-shrunk value", {
+  real_cores <- parallel::detectCores()
+  skip_if(is.na(real_cores), "parallel::detectCores() could not be determined")
+  skip_if_not_installed("future")
+
+  old_env <- Sys.getenv("_R_CHECK_LIMIT_CORES_", unset = NA)
+  on.exit(
+    if (is.na(old_env)) {
+      Sys.unsetenv("_R_CHECK_LIMIT_CORES_")
+    } else {
+      Sys.setenv("_R_CHECK_LIMIT_CORES_" = old_env)
+    },
+    add = TRUE
+  )
+  Sys.setenv("_R_CHECK_LIMIT_CORES_" = "true")
+
+  # .resolveTotalCores() must report the real core count, not the
+  # policy-shrunk future::availableCores() value.
+  expect_equal(.cur$.resolveTotalCores(), as.integer(real_cores))
+})
+
+test_that(".resolveTotalCores: returns a positive integer or NA_integer_", {
+  result <- .cur$.resolveTotalCores()
+  expect_true(is.na(result) || (is.numeric(result) && result >= 1L))
+})
+
+# =============================================================================
 # .withWorkerPlan
 # =============================================================================
 

@@ -34,6 +34,7 @@ Imports:
     knitr,
     methods,
     nlmixr2est (>= 5.0.0),
+    parallel,
     rxode2 (>= 5.0.0)
 Suggests:
     nlmixr2data,

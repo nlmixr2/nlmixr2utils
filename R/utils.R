@@ -98,6 +98,63 @@
   invisible(NULL)
 }
 
+#' Resolve the effective number of parallel workers for a workers=
+#' specification, without changing the current future plan
+#'
+#' @param workers \code{NULL}, \code{"auto"}, or a positive integer -- same
+#'   values accepted by \code{.withWorkerPlan()}'s \code{workers} argument.
+#' @return integer; the number of workers that would actually be used. For
+#'   \code{NULL}, this reflects the number of workers in the *currently
+#'   active* \code{future} plan (\code{1L} for a \code{sequential} plan),
+#'   not a hypothetical future one.
+#' @examples
+#' .resolveEffectiveWorkers(4L)
+#' .resolveEffectiveWorkers(NULL)
+#' @export
+.resolveEffectiveWorkers <- function(workers) {
+  if (is.null(workers)) {
+    if (requireNamespace("future", quietly = TRUE)) {
+      return(as.integer(future::nbrOfWorkers()))
+    }
+    return(1L)
+  }
+  if (identical(workers, "auto")) {
+    if (requireNamespace("future", quietly = TRUE)) {
+      return(max(1L, as.integer(future::availableCores(omit = 1L))))
+    }
+    return(1L)
+  }
+  as.integer(workers)
+}
+
+#' Resolve the total logical core count for the oversubscription guard
+#'
+#' Deliberately uses \code{parallel::detectCores()} (the true physical/
+#' logical core count) rather than \code{future::availableCores()}, which
+#' is policy-adjustable (honors \code{_R_CHECK_LIMIT_CORES_},
+#' \code{options(mc.cores=)}, and HPC scheduler allocations) and can report
+#' far fewer cores than the machine actually has -- \code{rxode2} does not
+#' respect any of those, so checking against a policy-shrunk value produces
+#' false-positive guard failures.
+#'
+#' @return integer core count, or \code{NA_integer_} if it cannot be
+#'   determined (the guard is skipped in that case rather than blocking on
+#'   an unknown core count).
+#' @noRd
+.resolveTotalCores <- function() {
+  n <- suppressWarnings(as.integer(parallel::detectCores()))
+  if (!is.na(n) && n >= 1L) {
+    return(n)
+  }
+  if (requireNamespace("future", quietly = TRUE)) {
+    n <- suppressWarnings(as.integer(future::availableCores()))
+    if (!is.na(n) && n >= 1L) {
+      return(n)
+    }
+  }
+  NA_integer_
+}
+
 #' Temporarily set a future parallel plan for the duration of an expression
 #'
 #' @param workers \code{NULL} (leave the current plan unchanged),
