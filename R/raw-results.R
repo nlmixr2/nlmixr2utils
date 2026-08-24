@@ -483,9 +483,14 @@
   if (length(flag) == 1L && !is.na(flag)) {
     return(as.integer(flag))
   }
-  msg <- fit$message
-  if (is.character(msg) && length(msg) > 0L && nzchar(msg[[1L]])) {
-    return(0L)
+  # nlmixr2est fit objects don't carry $minimization_successful, and
+  # $message holds the optimizer's exit text on success too (e.g. "Normal
+  # exit from bobyqa"), so it can't distinguish success from failure.
+  # $convergence mirrors the underlying optimizer's ierr/status code, where
+  # 0 means success -- see nlmixr2est's .bobyqa()/.uobyqa()/.newuoa().
+  conv <- fit$convergence
+  if (is.numeric(conv) && length(conv) == 1L && !is.na(conv)) {
+    return(as.integer(conv == 0L))
   }
   if (is.finite(objf)) {
     return(1L)

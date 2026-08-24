@@ -113,6 +113,45 @@ test_that("rawResultsRow populates parameter and SE blocks", {
   expect_equal(row$covariance_step_successful[[1L]], 1L)
 })
 
+test_that("rawResultsRow does not mistake a normal exit message for failure", {
+  # Real nlmixr2est fit objects have no $minimization_successful field and
+  # always populate $message with the optimizer's exit text -- including on
+  # success (e.g. "Normal exit from bobyqa"). $convergence (0 = success,
+  # mirroring the underlying optimizer's ierr/status code) is the reliable
+  # signal.
+  fit <- .mockRawResultsFit()
+  fit$message <- "Normal exit from bobyqa"
+  fit$convergence <- 0L
+
+  row <- rawResultsRow(
+    fit,
+    source = "bootstrap",
+    hypothesis = "sample",
+    sample = 3L,
+    modelLabel = "reference",
+    role = "reference"
+  )
+
+  expect_equal(row$minimization_successful[[1L]], 1L)
+})
+
+test_that("rawResultsRow flags a genuinely failed minimization via $convergence", {
+  fit <- .mockRawResultsFit()
+  fit$message <- "false convergence (8)"
+  fit$convergence <- -42L
+
+  row <- rawResultsRow(
+    fit,
+    source = "bootstrap",
+    hypothesis = "sample",
+    sample = 4L,
+    modelLabel = "reference",
+    role = "reference"
+  )
+
+  expect_equal(row$minimization_successful[[1L]], 0L)
+})
+
 test_that("writeRawResults/readRawResults round-trip and preserve header blocks", {
   fit <- .mockRawResultsFit()
   tmp <- .testDir()

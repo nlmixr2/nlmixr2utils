@@ -1,3 +1,14 @@
+# nlmixr2utils 0.3.1
+
+* Fixed `rawResultsRow()`'s `minimization_successful` column, which
+  previously reported failure (`0`) for essentially every real fit. The
+  fallback heuristic treated any non-empty `fit$message` as a failure
+  signal, but `nlmixr2est` fit objects populate `$message` with the
+  optimizer's exit text on success too (e.g. `"Normal exit from bobyqa"`),
+  and never carry the `$minimization_successful` field the primary check
+  looked for. The fallback now uses `fit$convergence` (0 = success,
+  mirroring the underlying optimizer's `ierr`/`status` code) instead.
+
 # nlmixr2utils 0.3
 
 * `.withWorkerPlan()` now guards against requesting more parallel OS threads
