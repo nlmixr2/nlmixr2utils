@@ -321,3 +321,52 @@ test_that("rawResultsSchema works on the shipped theoFitOde example", {
   expect_true(all(c("tka", "tcl", "tv", "add.sd") %in% schema$thetaCols))
   expect_true(any(grepl("^omega\\(", schema$omegaCols)))
 })
+
+test_that("raw-results errors interpolate values from the calling frame", {
+  # `.abortRawResults()` used to let `cli_abort()` default `.envir` to its own
+  # frame, so every `{var}` in a message resolved against the wrapper instead of
+  # the caller. Messages became "could not evaluate cli expression" (or, for
+  # names that shadow a base object such as `missing`, an unrelated coercion
+  # error), hiding the real diagnostic.
+  emptyDir <- file.path(tempdir(), "nlmixr2utils-empty-rawres")
+  dir.create(emptyDir, showWarnings = FALSE)
+  on.exit(unlink(emptyDir, recursive = TRUE, force = TRUE), add = TRUE)
+  expect_error(
+    readRawResults(emptyDir),
+    "Could not find",
+    fixed = TRUE
+  )
+  expect_error(
+    .rawResultsFilterColumns(c("nope", "nah"), "objf"),
+    'unknown raw-results columns "nope" and "nah"',
+    fixed = TRUE
+  )
+  expect_error(
+    .coerceFilterResult(1:3, 5L),
+    "logical vector of length 5",
+    fixed = TRUE
+  )
+  expect_error(
+    .vectorWithNames(c(1, 2), c("a", "b", "c"), "theta"),
+    "must be named or have length 3",
+    fixed = TRUE
+  )
+  # `missing` shadows base::missing, the case that produced the most misleading
+  # error of all.
+  expect_error(
+    .normalizeSchemaList(list(columns = 1)),
+    "missing required fields",
+    fixed = TRUE
+  )
+})
+
+test_that("raw-results errors are attributed to the calling function", {
+  # Threading `.envir` also makes `cli_abort()` default `call` to the caller's
+  # frame, so the error names the function the user actually invoked rather
+  # than the internal `.abortRawResults()` wrapper.
+  err <- tryCatch(
+    rawResultsRow(list(), source = 1),
+    error = function(e) e
+  )
+  expect_equal(rlang::call_name(conditionCall(err)), "rawResultsRow")
+})

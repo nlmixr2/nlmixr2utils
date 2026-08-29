@@ -1,5 +1,17 @@
 # nlmixr2utils 0.3.1
 
+* Fixed the internal `.abortRawResults()` and `.abortRunCache()` error
+  helpers, which passed their message straight to `cli::cli_abort()` without
+  threading `.envir`. Because `cli_abort()` defaults `.envir` to
+  `parent.frame()` — the helper's own frame, not the caller's — every `{var}`
+  interpolation resolved against the wrapper and failed. All 16 affected
+  messages reported `Could not evaluate cli {} expression` instead of the real
+  diagnostic, and one (`{missing}`, which shadows `base::missing`) degraded
+  further into `cannot coerce type 'special' to vector of type 'character'`.
+  Validation failures in `readRawResults()`, `parseRawResultsParams()`,
+  `setupRawResultsFilter()`, `rawResultsRow()`, `readRunState()`, and
+  `taskCache()$get()` now report what actually went wrong, and name the
+  function the user called rather than the internal helper.
 * Fixed `rawResultsRow()`'s `minimization_successful` column, which
   previously reported failure (`0`) for essentially every real fit. The
   fallback heuristic treated any non-empty `fit$message` as a failure

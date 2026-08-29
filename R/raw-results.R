@@ -17,8 +17,13 @@
   "error_message"
 )
 
-.abortRawResults <- function(...) {
-  cli::cli_abort(c("!" = ...))
+# `.envir` must be threaded through: `cli_abort()` defaults it to
+# `parent.frame()`, which is this wrapper's frame rather than the caller's, so
+# every `{var}` in a message would resolve against the wrapper. `call` and
+# `.frame` both default to `.envir`, so this also attributes the error to the
+# calling function instead of to `.abortRawResults()`.
+.abortRawResults <- function(..., .envir = parent.frame()) {
+  cli::cli_abort(c("!" = ...), .envir = .envir)
 }
 
 .isScalarCharacter <- function(x) {
