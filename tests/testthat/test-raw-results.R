@@ -368,7 +368,10 @@ test_that("raw-results errors are attributed to the calling function", {
     rawResultsRow(list(), source = 1),
     error = function(e) e
   )
-  expect_equal(rlang::call_name(conditionCall(err)), "rawResultsRow")
+  # Base R rather than rlang::call_name(): rlang is not a declared dependency,
+  # and `R CMD check --as-cran` raises "unstated dependencies in 'tests'" for a
+  # bare `::` into an undeclared package, which CI promotes to a failure.
+  expect_equal(as.character(conditionCall(err)[[1L]]), "rawResultsRow")
 })
 
 test_that("a parameterless fit yields no se columns", {
