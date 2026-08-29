@@ -17,12 +17,28 @@
   "error_message"
 )
 
-.abortRawResults <- function(...) {
-  cli::cli_abort(c("!" = ...))
+# `.envir` must be threaded through: `cli_abort()` defaults it to
+# `parent.frame()`, which is this wrapper's frame rather than the caller's, so
+# every `{var}` in a message would resolve against the wrapper. `call` and
+# `.frame` both default to `.envir`, so this also attributes the error to the
+# calling function instead of to `.abortRawResults()`.
+.abortRawResults <- function(..., .envir = parent.frame()) {
+  cli::cli_abort(c("!" = ...), .envir = .envir)
 }
 
 .isScalarCharacter <- function(x) {
   is.character(x) && length(x) == 1L && !is.na(x)
+}
+
+# paste0() drops zero-length arguments rather than returning zero length, so
+# paste0(character(0), ".se") is ".se", not character(0). Without this guard a
+# fit with no estimated parameters yields a schema carrying a phantom ".se"
+# column, and rows built from it have a width nothing else can rbind against.
+.seColNames <- function(paramCols) {
+  if (length(paramCols) == 0L) {
+    return(character(0))
+  }
+  paste0(paramCols, ".se")
 }
 
 .normalizeSchemaList <- function(schema) {
@@ -370,7 +386,7 @@
   sigmaCols <- paramCols[grepl("^sigma\\(", paramCols)]
 
   orderedParam <- c(thetaCols, omegaCols, sigmaCols)
-  orderedSe <- paste0(orderedParam, ".se")
+  orderedSe <- .seColNames(orderedParam)
   orderedCols <- c(.rawResultsBaseCols, orderedParam, orderedSe)
 
   .schemaHeader(.normalizeSchemaList(list(
@@ -554,7 +570,7 @@ rawResultsSchema <- function(fit) {
   omegaInfo <- .omegaInfoFromFit(fit)
   sigmaInfo <- .sigmaInfoFromFit(fit)
   paramCols <- c(thetaCols, omegaInfo$colName, sigmaInfo$colName)
-  seCols <- paste0(paramCols, ".se")
+  seCols <- .seColNames(paramCols)
 
   .normalizeSchemaList(list(
     columns = c(.rawResultsBaseCols, paramCols, seCols),

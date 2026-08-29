@@ -139,3 +139,26 @@ test_that("deriveFitName sanitizes list extraction expressions", {
   expect_equal(deriveFitName(substitute(fits[[1]])), "fits_1")
   expect_equal(deriveFitName(substitute(1 + 1)), "1_1")
 })
+
+test_that("run-cache errors interpolate values from the calling frame", {
+  tmp <- .testDir()
+  on.exit(unlink(tmp, recursive = TRUE, force = TRUE), add = TRUE)
+
+  # See the matching test in test-raw-results.R: `.abortRunCache()` had the same
+  # `.envir` defect. `get()` is a closure, so this also covers interpolation
+  # against a calling frame that is not a plain function body.
+  cache <- taskCache(tmp)
+  expect_error(
+    cache$get("no-such-key"),
+    'Cache key "no-such-key" was not found',
+    fixed = TRUE
+  )
+
+  path <- file.path(tmp, "run_state.rds")
+  saveRDS(list(not_a_state = TRUE), path)
+  expect_error(
+    readRunState(tmp, "run"),
+    "does not follow the versioned schema format",
+    fixed = TRUE
+  )
+})

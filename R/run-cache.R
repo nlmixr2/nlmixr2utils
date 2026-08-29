@@ -2,8 +2,10 @@
 
 .runCacheSchemaVersion <- 1L
 
-.abortRunCache <- function(...) {
-  cli::cli_abort(c("!" = ...))
+# See `.abortRawResults()` in raw-results.R: `.envir` must be threaded through
+# so `{var}` resolves against the caller rather than this wrapper.
+.abortRunCache <- function(..., .envir = parent.frame()) {
+  cli::cli_abort(c("!" = ...), .envir = .envir)
 }
 
 .sanitizeToken <- function(x) {
