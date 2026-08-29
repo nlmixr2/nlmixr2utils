@@ -370,3 +370,23 @@ test_that("raw-results errors are attributed to the calling function", {
   )
   expect_equal(rlang::call_name(conditionCall(err)), "rawResultsRow")
 })
+
+test_that("a parameterless fit yields no se columns", {
+  # paste0() drops zero-length arguments instead of returning zero length, so
+  # paste0(character(0), ".se") is ".se". A fit with no estimated parameters
+  # therefore gained a phantom ".se" column, and rows built from that schema had
+  # a width no other schema could rbind against.
+  empty <- list(
+    theta = numeric(0),
+    omega = matrix(numeric(0), 0L, 0L),
+    sigma = matrix(numeric(0), 0L, 0L),
+    iniDf = data.frame(),
+    parFixedDf = data.frame()
+  )
+
+  schema <- rawResultsSchema(empty)
+
+  expect_equal(schema$seCols, character(0))
+  expect_false(".se" %in% schema$columns)
+  expect_equal(schema$columns, schema$baseCols)
+})

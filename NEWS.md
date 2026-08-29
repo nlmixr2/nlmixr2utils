@@ -1,5 +1,10 @@
 # nlmixr2utils 0.3.1
 
+* Fixed `rawResultsSchema()` and `.schemaHeader()` emitting a phantom `".se"`
+  column for a fit with no estimated parameters. `paste0()` drops zero-length
+  arguments rather than returning zero length, so `paste0(character(0), ".se")`
+  is `".se"`, not `character(0)`. Rows built from such a schema carried a column
+  nothing else could `rbind()` against.
 * Fixed the internal `.abortRawResults()` and `.abortRunCache()` error
   helpers, which passed their message straight to `cli::cli_abort()` without
   threading `.envir`. Because `cli_abort()` defaults `.envir` to
