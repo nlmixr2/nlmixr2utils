@@ -7,6 +7,9 @@
   driver (`runSCM()`, `runSIR()`) logs one entry instead of one run per
   internal fit.  Nothing changes without a listener.
 
+* New vignette `vignette("events")` for driver authors: how `.plap()` scopes
+  its items on the rxode2 event bus and how a driver reports one result.
+
 # nlmixr2utils 0.3.1
 
 * Fixed `rawResultsSchema()` and `.schemaHeader()` emitting a phantom `".se"`
