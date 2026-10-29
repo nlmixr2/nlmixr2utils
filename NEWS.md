@@ -1,3 +1,15 @@
+# nlmixr2utils (development version)
+
+* `.plap()` runs every item inside the rxode2 event scope (when rxode2 has an
+  event bus), in the main process, in the `lapply()` fallback and in the
+  workers of a `future` plan set before the call.  Fits and solves made by
+  the items are then silent for loggers such as nlmixr2log, so a parallel
+  driver (`runSCM()`, `runSIR()`) logs one entry instead of one run per
+  internal fit.  Nothing changes without a listener.
+
+* New vignette `vignette("events")` for driver authors: how `.plap()` scopes
+  its items on the rxode2 event bus and how a driver reports one result.
+
 # nlmixr2utils 0.3.1
 
 * Fixed `rawResultsSchema()` and `.schemaHeader()` emitting a phantom `".se"`

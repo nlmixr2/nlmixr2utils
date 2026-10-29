@@ -34,6 +34,11 @@
   } else {
     FUN
   }
+  # every item runs inside the rxode2 event scope, so fits and solves made by
+  # the item are silent for loggers such as nlmixr2log, whichever process runs
+  # it (a worker of a plan set before this call does not inherit the caller's
+  # scope)
+  wrappedFUN <- .eventScoped(wrappedFUN)
 
   if (!requireNamespace("future.apply", quietly = TRUE)) {
     return(lapply(X, wrappedFUN, ...))
@@ -62,6 +67,25 @@
       future.packages = "nlmixr2utils"
     )
   })
+}
+
+#' Run a function inside the rxode2 event scope, when rxode2 has one
+#'
+#' @param FUN a function
+#' @return a function with the same arguments as `FUN(x, ...)` whose calls
+#'   run inside `rxode2::rxEventScope()` (looked up when called, in the
+#'   process that runs it)
+#' @noRd
+.eventScoped <- function(FUN) {
+  force(FUN)
+  function(x, ...) {
+    rx <- asNamespace("rxode2")
+    if (exists("rxEventScope", envir = rx, inherits = FALSE)) {
+      get("rxEventScope", envir = rx)(FUN(x, ...))
+    } else {
+      FUN(x, ...)
+    }
+  }
 }
 
 #' Validate a worker-plan specification
