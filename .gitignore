@@ -51,3 +51,7 @@ rsconnect/
 
 # git worktrees
 .worktrees/
+
+# built vignettes
+/doc/
+/Meta/

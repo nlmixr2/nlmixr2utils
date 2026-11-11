@@ -1,0 +1,196 @@
+---
+title: "nlmixr2utils events"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{nlmixr2utils events}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+has_bus <- exists("rxEventListen", asNamespace("rxode2"))
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = has_bus)
+```
+
+```{r no-bus, echo = FALSE, eval = !has_bus, results = "asis"}
+cat("> **Note:** the installed rxode2 has no event bus, so the code in this",
+    "vignette is shown but not run.\n")
+```
+
+This vignette is for authors of driver packages built on nlmixr2utils, such as
+nlmixr2scm and nlmixr2sir.  It explains how the worker helper `.plap()`
+interacts with the rxode2 event bus, and what a driver has to do so that a
+logger records one entry per driver run instead of one per internal fit.
+
+## The event bus in brief
+
+rxode2 has a small publish/subscribe event bus (see `?rxode2::rxEventListen`).
+Packages that finish a user-facing operation (a fit, a simulation, a driver
+result) call `rxode2::rxEventEmit()`, and listeners registered with
+`rxode2::rxEventListen(id, fun)` are called as `fun(event, ...)` with the event
+name and the payload fields as named arguments.
+
+The key rule is that events are delivered only at scope depth 0.  Every
+emitting function enters a shared "operation scope" (`rxode2::rxEventScope()`,
+or `.rxEventEnter()`/`.rxEventExit()`), so only the outermost operation
+reports; the `rxSolve()` calls inside a fit and the fits inside a driver are
+silent.  The depth is mirrored into the `RXODE2_EVENT_DEPTH` environment
+variable so that worker processes *started* inside a scope begin silent too.
+
+The main consumer is [nlmixr2log](https://github.com/nlmixr2/nlmixr2log), but
+any package can listen.
+
+## What nlmixr2utils does
+
+nlmixr2utils **emits no events of its own**.  Its only hook is in `.plap()`:
+every item is evaluated inside `rxode2::rxEventScope()`, whichever process
+runs it:
+
+* in the main process (a `sequential` plan),
+* in the `lapply()` fallback when future.apply is not installed, and
+* in the workers of a `future` plan.
+
+The last case is why the scope is applied per item rather than relying on the
+caller's scope.  A `multisession` (or `cluster`) plan set *before* the driver
+is called has workers that were already running when the driver entered its
+scope, so they never saw `RXODE2_EVENT_DEPTH` and would otherwise be at depth
+0.  Any fit or solve such a worker makes would then emit (in the worker
+process, where a listener might be loaded, for example by nlmixr2targets).
+Wrapping each item closes that gap.
+
+The scope is looked up when each item runs, in the process that runs it, and
+is skipped when that rxode2 has no event bus, so nothing changes with an older
+rxode2.  When `rxThreads` is given, the thread setting is applied inside the
+scope.  An error in an item still restores the depth.
+
+| Where the item runs                     | Depth inside the item | Events from fits/solves in the item |
+|-----------------------------------------|-----------------------|-------------------------------------|
+| main process (`sequential` plan)        | caller depth + 1      | none                                |
+| `lapply()` fallback                     | caller depth + 1      | none                                |
+| worker of a plan set before the call    | at least 1            | none                                |
+| plain `future_lapply()` without `.plap` | 0 in such a worker    | emitted (the gap `.plap()` closes)  |
+
+## Seeing it work
+
+A small recording listener stores the name of every event it receives:
+
+```{r listen}
+library(nlmixr2utils)
+got <- character(0)
+rxode2::rxEventListen("demo", function(event, ...) got <<- c(got, event))
+```
+
+A tiny model, solved at the top level, reports one `solveComplete` (emitted by
+rxode2's `rxSolve()`):
+
+```{r solve, message = FALSE}
+mod <- rxode2::rxode2({
+  d/dt(central) <- -kel * central
+})
+solveOne <- function(kel) {
+  rxode2::rxSolve(mod, params = c(kel = kel),
+                  events = rxode2::et(amt = 100, time = 0) |> rxode2::et(0:4),
+                  inits = c(central = 0))
+}
+invisible(solveOne(0.1))
+got
+```
+
+The same solves run through `.plap()` are silent, because each item is in the
+event scope:
+
+```{r plap}
+got <- character(0)
+future::plan(future::sequential)
+res <- .plap(c(0.1, 0.2, 0.3), function(kel) {
+  c(kel = kel, depth = rxode2::rxEventDepth(), n = nrow(solveOne(kel)))
+})
+do.call(rbind, res)
+got
+rxode2::rxEventDepth()
+```
+
+Inside each item the depth is 1; outside it is back to 0, and no event was
+delivered.
+
+## Writing a driver
+
+A driver should report once, on exit, with the result of the whole run.  The
+pattern used by `runSCM()` and `runSIR()` is to enter the scope at the start,
+and leave it with `.rxEventExit(event, ...)` from `on.exit()`, which lowers the
+depth and then emits (so the event is delivered only when the driver itself
+was called at the top level).  Every rxode2 call is guarded with an
+`exists()` check so the driver still works with an rxode2 that has no bus.
+
+```{r driver}
+.hasBus <- function() {
+  exists("rxEventEmit", envir = asNamespace("rxode2"), inherits = FALSE)
+}
+
+myDriver <- function(kels) {
+  if (.hasBus()) getExportedValue("rxode2", ".rxEventEnter")()
+  .call <- sys.call()
+  on.exit({
+    if (.hasBus()) {
+      .res <- returnValue()
+      .exit <- getExportedValue("rxode2", ".rxEventExit")
+      if (is.null(.res)) {
+        .exit()            # an error: leave the scope, report nothing
+      } else {
+        .exit("fitResult", fit = NULL, result = .res, kind = "demo",
+              call = .call, fun = "myDriver")
+      }
+    }
+  }, add = TRUE)
+  res <- .plap(kels, function(kel) tail(solveOne(kel)$central, 1))
+  data.frame(kel = kels, c4 = unlist(res))
+}
+
+got <- character(0)
+myDriver(c(0.1, 0.2))
+got
+```
+
+One `fitResult` is delivered for the whole run; none of the solves inside it
+report.  A real driver passes its base fit as `fit` (nlmixr2scm and nlmixr2sir
+pass the fit given to `runSCM()`/`runSIR()`) and a small summary as `result`;
+see the `fitResult` payload in nlmixr2log's documentation.  nlmixr2scm also
+emits a `fitComplete` (with `source = "scm"`) for the selected model when it
+differs from the base fit.
+
+Two points matter for the scope to stay balanced:
+
+* enter the scope exactly once and leave it exactly once, from `on.exit()`,
+  so an error cannot leave the process at a non-zero depth (every later event
+  would then be dropped);
+* emit through `.rxEventExit()` (or call `rxEventEmit()` only after leaving
+  the scope); an event emitted while the driver's own scope is active is
+  silently dropped.
+
+## Parallel workers
+
+The same driver behaves identically with a `multisession` plan set before the
+call: the workers were started at depth 0, but `.plap()` scopes each item in
+the worker, so only the driver's `fitResult` is delivered.  This is not run
+here, to keep the vignette fast:
+
+```{r multisession, eval = FALSE}
+future::plan(future::multisession, workers = 2)
+got <- character(0)
+res <- .plap(1:4, function(i) rxode2::rxEventDepth())
+unlist(res)    # all >= 1: each item is in the scope in its worker
+unlist(future.apply::future_lapply(1:4, function(i) rxode2::rxEventDepth()))
+               # all 0: the same workers without .plap()
+future::plan(future::sequential)
+```
+
+## Cleaning up
+
+```{r unlisten}
+rxode2::rxEventUnlisten("demo")
+rxode2::rxEventListeners()
+```
+
+For full logging of fits, simulations and driver results, use
+[nlmixr2log](https://github.com/nlmixr2/nlmixr2log) rather than a hand-written
+listener.
